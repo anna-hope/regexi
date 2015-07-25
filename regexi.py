@@ -194,6 +194,10 @@ def make_pattern_word(indexes_word, word):
 def find_pattern_pair(word1, word2, verbose=False):
     # word1 should be the shorter word (if length is unequal)
 
+    if verbose:
+        print('*' * 10)
+        print('words:', word1, word2)
+
     try:
         if len(word1) > len(word2):
             return find_pattern_pair(word2, word1)
@@ -202,10 +206,6 @@ def find_pattern_pair(word1, word2, verbose=False):
 
     except (TypeError, ValueError):
         return None
-
-    if verbose:
-        print('*' * 10)
-        print('words:', word1, word2)
 
     pattern1, pattern2 = (make_pattern_word(indexes1, word1),
                           make_pattern_word(indexes2, word2))
@@ -276,22 +276,32 @@ def find_pattern_pair(word1, word2, verbose=False):
 
 
 def find_pattern(words, verbose=False, test_every_step=False):
-    words_pairs = combinations(words, 2)
-    patterns_pairs = [find_pattern_pair(word1, word2, verbose=verbose)
-                      for word1, word2 in words_pairs]
+    # words_pairs = combinations(words, 2)
+    # patterns_pairs = [find_pattern_pair(word1, word2, verbose=verbose)
+    #                   for word1, word2 in words_pairs]
+    #
+    # while len(patterns_pairs) > 2:
+    #     one, two, *rest = patterns_pairs
+    #     common_pattern = find_pattern_pair(one, two)
+    #     patterns_pairs = [common_pattern] + rest
+    #     if verbose:
+    #         print('*' * 10)
+    #         print('{} patterns remaining'.format(len(patterns_pairs)))
+    #         pprint(patterns_pairs)
+    #
+    # one, two = patterns_pairs
+    # common_pattern = find_pattern_pair(one, two, verbose)
 
-    while len(patterns_pairs) > 2:
-        one, two, *rest = patterns_pairs
-        common_pattern = find_pattern_pair(one, two)
-        patterns_pairs = [common_pattern] + rest
+    while len(words) > 2:
+        one, two, *rest = words
+        combined_pattern = find_pattern_pair(one, two, verbose=verbose)
+        words = [combined_pattern] + rest
         if verbose:
-            print('*' * 10)
-            pprint(patterns_pairs)
+            pprint(words)
 
-    one, two = patterns_pairs
-    common_pattern = find_pattern_pair(one, two, verbose)
+    combined_pattern = find_pattern_pair(words[0], words[1], verbose=verbose)
 
-    return common_pattern
+    return combined_pattern
 
 
 def make_regex(pattern):
@@ -318,7 +328,7 @@ def make_regex(pattern):
 
 def run(file, tolerance, verbose=False, test_every_step=False):
     with open(file) as word_list:
-        words = {w.strip() for w in word_list.readlines()}
+        words = [w.strip() for w in word_list.readlines()]
     pattern = find_pattern(words, verbose=verbose,
                            test_every_step=test_every_step)
 
