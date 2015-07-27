@@ -22,7 +22,7 @@ class AmbiguousCharacter:
         self.chars = frozenset(temp_chars)
 
     def __repr__(self):
-        return '[{}]'.format(''.join(sorted(self.chars)))
+        return '[{}]'.format('/'.join(sorted(self.chars)))
 
     def __str__(self):
         return repr(self)
@@ -161,6 +161,9 @@ def make_pattern_word(indexes_word, word):
         for index in indexes:
             if pattern[index] is None:
                 pattern[index] = letter
+            elif pattern[index] == letter:
+                # this letter occurs twice and has already been assigned
+                pass
             else:
                 # a letter has already been assigned to that index
                 pattern[index] = AmbiguousCharacter((pattern[index], letter))
@@ -304,6 +307,7 @@ def find_pattern(words, verbose=False, test_every_step=False):
         combined_pattern = find_pattern_pair(one, two, verbose=verbose)
         words = [combined_pattern] + rest
         if verbose:
+            print('remaining words:')
             pprint(words)
 
     combined_pattern = find_pattern_pair(words[0], words[1], verbose=verbose)
