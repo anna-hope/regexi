@@ -79,6 +79,9 @@ def find_intersection(word1, word2):
                 if element == other_element:
                     ambiguous_intersection = element.intersection(other_element)
                     for e in ambiguous_intersection:
+
+                        
+
                         intersection.add(e)
             elif isinstance(element, AmbiguousCharacter):
                 if other_element in element:
@@ -119,13 +122,22 @@ def find_closest_indexes(indexes1, indexes2, offset=1):
     if len(indexes1) <= len(indexes2):
 
         for index1, index2 in zip(indexes1, indexes2):
-            closest_other = min(indexes2,
-                                key=lambda n: abs(n - index1 * offset))
+
+            # index1 is from the shorter string
+            # so we multiply them by the offset
+            # (see below for explanation)
+
+            closest_other = min(indexes2, key=lambda n: abs(n - index1 * offset))
             close_indexes_1.append(index1)
             close_indexes_2.append(closest_other)
     else:
         for index1, index2 in zip(indexes1, indexes2):
-            closest_other = min(indexes1, key=lambda n: abs(n - index2 * offset))
+
+            # n is the index from the shorter string
+            # so that's the index we multiply by the offset
+            # (ibid.)
+
+            closest_other = min(indexes1, key=lambda n: abs(n * offset - index2))
             close_indexes_1.append(closest_other)
             close_indexes_2.append(index2)
 
@@ -150,6 +162,12 @@ def find_intersection_indexes(word1, word2):
     # which are significantly different in their lengths
 
     assert len(word1) <= len(word2)
+
+    # the first string is always shorter (unless something is very wrong)
+    # so the offset is the quantity by which the second string is longer than the first
+    # we will be taking that number
+    # and multiplying the indexes of characters in the shorter string by it
+    # so that they may more accurately match the indexes of characters in the longer string
 
     if len(word1) != len(word2):
         offset = len(word2) / len(word1)
