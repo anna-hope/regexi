@@ -2,7 +2,6 @@ __author__ = 'anton'
 
 from argparse import ArgumentParser
 from collections import defaultdict
-from functools import reduce
 from itertools import combinations, chain, zip_longest
 from pprint import pprint, pformat
 
@@ -108,7 +107,9 @@ def get_common_letters(word, intersection):
 
     return intersection_word
 
-def find_closest_indexes(indexes1, indexes2):
+
+
+def find_closest_indexes(indexes1, indexes2, offset=1):
     # take the indexes from the word which has less of them
     # pick the most closely located indexes between the two words
 
@@ -116,13 +117,15 @@ def find_closest_indexes(indexes1, indexes2):
     close_indexes_2 = []
 
     if len(indexes1) <= len(indexes2):
+
         for index1, index2 in zip(indexes1, indexes2):
-            closest_other = min(indexes2, key=lambda n: abs(n - index1))
+            closest_other = min(indexes2,
+                                key=lambda n: abs(n - index1 * offset))
             close_indexes_1.append(index1)
             close_indexes_2.append(closest_other)
     else:
         for index1, index2 in zip(indexes1, indexes2):
-            closest_other = min(indexes1, key=lambda n: abs(n - index2))
+            closest_other = min(indexes1, key=lambda n: abs(n - index2 * offset))
             close_indexes_1.append(closest_other)
             close_indexes_2.append(index2)
 
@@ -142,10 +145,21 @@ def find_intersection_indexes(word1, word2):
     adjusted_intersection_1 = {}
     adjusted_intersection_2 = {}
 
+    # calculate the approximation offset
+    # to keep indexes more accurate for strings
+    # which are significantly different in their lengths
+
+    assert len(word1) <= len(word2)
+
+    if len(word1) != len(word2):
+        offset = len(word2) / len(word1)
+    else:
+        offset = 1
+
     for letter in intersection:
         indexes1 = intersection_1[letter]
         indexes2 = intersection_2[letter]
-        closest1, closest2 = find_closest_indexes(indexes1, indexes2)
+        closest1, closest2 = find_closest_indexes(indexes1, indexes2, offset)
 
         adjusted_intersection_1[letter] = closest1
         adjusted_intersection_2[letter] = closest2
@@ -176,8 +190,8 @@ def make_pattern_word(indexes_word, word):
     optimised_pattern = []
     nones = []
     for n, element in enumerate(pattern):
-        if element:
 
+        if element:
             if nones:
                 # append the list of None's if there is anything in it
                 optimised_pattern.append(tuple(nones))
@@ -189,6 +203,8 @@ def make_pattern_word(indexes_word, word):
             if n + 1 == len(pattern):
                 # this pattern ends in None
                 optimised_pattern.append(tuple(nones))
+
+    pprint((word, optimised_pattern))
 
     return optimised_pattern
 
