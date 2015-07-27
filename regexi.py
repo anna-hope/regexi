@@ -8,7 +8,6 @@ from pprint import pprint, pformat
 
 from greenery import lego
 
-
 class AmbiguousCharacter:
     def __init__(self, chars):
         temp_chars = []
@@ -226,13 +225,21 @@ def find_pattern_pair(word1, word2, verbose=False):
         try:
             element2 = shorter_pattern[i2]
         except IndexError:
-            # the shorter pattern has been exhausted
-            # fill the rest with Nones
-            num_remaining_elements = len(longer_pattern) - i1
-            end_nones = [None for _ in range(num_remaining_elements)]
-            assert end_nones
-            common_pattern.append(tuple(end_nones))
 
+            # this means the shorter pattern has been exhausted
+            # and we need to fill the rest of the pattern with Nones
+            # caveat: we need to keep the last character of the shorter pattern last
+            # so that strings which match on the last character produce a more accurate pattern
+            # (e.g. 'olga' and 'hanna')
+            # for this, we need to split the existing pattern
+            # and insert the tuple of Nones before the last character
+
+            *start, end = common_pattern
+            num_remaining_elements = len(longer_pattern) - i1
+            end_nones = tuple(None for _ in range(num_remaining_elements))
+            common_pattern = start + [end_nones, end]
+
+            # iteration is over
             break
 
         # both elements are None tuples
@@ -252,13 +259,13 @@ def find_pattern_pair(word1, word2, verbose=False):
             if element1 == element2:
                 common_pattern.append(element1)
             else:
+
                 # the order cannot be established unambiguously
                 # falling back to the 'ambiguous' pattern
+                # where the same position may be occupied by 2+ characters
+
                 common_pattern.append(AmbiguousCharacter((element1, element2)))
-                # if element1 not in common_pattern:
-                #     common_pattern.append(element1)
-                # if element2 not in common_pattern:
-                #     common_pattern.append(element2)
+
             i1 += 1
             i2 += 1
 
@@ -316,10 +323,11 @@ def make_regex(pattern):
             else:
                 expression += element
         else:
-            # hack with comppletely optional None characters
+            # hack with completely optional None characters
+            # (specifying length may yield an incorrect pattern)
             expression += '.*'
 
-    # concatenate the expression with lego
+    # optimise the expression with lego
 
     expression = lego.parse(expression)
 
