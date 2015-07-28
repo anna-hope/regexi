@@ -145,7 +145,7 @@ def find_closest_indexes(indexes1, indexes2, length1, length2):
             close_indexes_2.append(closest_other)
 
     else:
-        
+
         for index1, index2 in zip(indexes1, indexes2):
 
             # n is the index from the shorter string
@@ -172,18 +172,6 @@ def find_intersection_indexes(word1, word2):
 
     adjusted_intersection_1 = {}
     adjusted_intersection_2 = {}
-
-    # calculate the approximation offset
-    # to keep indexes more accurate for strings
-    # which are significantly different in their lengths
-
-    assert len(word1) <= len(word2)
-
-    # the first string is always shorter (unless something is very wrong)
-    # so the offset is the quantity by which the second string is longer than the first
-    # we will be taking that number
-    # and multiplying the indexes of characters in the shorter string by it
-    # so that they may more accurately match the indexes of characters in the longer string
 
     find_closest = partial(find_closest_indexes,
                            length1=len(word1), length2=len(word2))
