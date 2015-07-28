@@ -2,6 +2,7 @@ __author__ = 'anton'
 
 from argparse import ArgumentParser
 from collections import defaultdict
+from functools import partial
 from itertools import combinations, chain, zip_longest
 from pprint import pprint, pformat
 
@@ -78,11 +79,14 @@ def find_intersection(word1, word2):
                 and isinstance(other_element, AmbiguousCharacter)):
                 if element == other_element:
                     ambiguous_intersection = element.intersection(other_element)
+
+                    # add the intersection of the ambiguous element
+                    # i.e. for [an] and [mn] it would be 'n'
+
                     for e in ambiguous_intersection:
 
-                        
-
                         intersection.add(e)
+
             elif isinstance(element, AmbiguousCharacter):
                 if other_element in element:
                     intersection.add(other_element)
@@ -110,16 +114,24 @@ def get_common_letters(word, intersection):
 
     return intersection_word
 
+# TODO: try to find close indexes based on their percentage position in the string
+# e.g. 3/4 and 5/6 should be closer than 3/4 and 3/6
+
+def pick_closest(index, other_indexes, length1, length2):
+    closest = min(other_indexes)
 
 
-def find_closest_indexes(indexes1, indexes2, offset=1):
+def find_closest_indexes(indexes1, indexes2, length1, length2):
     # take the indexes from the word which has less of them
     # pick the most closely located indexes between the two words
 
     close_indexes_1 = []
     close_indexes_2 = []
 
-    if len(indexes1) <= len(indexes2):
+    if len(indexes1) == len(indexes2):
+        close_indexes_1, close_indexes_2 = indexes1, indexes2
+
+    elif len(indexes1) < len(indexes2):
 
         for index1, index2 in zip(indexes1, indexes2):
 
@@ -127,17 +139,21 @@ def find_closest_indexes(indexes1, indexes2, offset=1):
             # so we multiply them by the offset
             # (see below for explanation)
 
-            closest_other = min(indexes2, key=lambda n: abs(n - index1 * offset))
+            closest_other = min(indexes2,
+                                key=lambda n: abs(n / length2 - index1 / length1))
             close_indexes_1.append(index1)
             close_indexes_2.append(closest_other)
+
     else:
+        
         for index1, index2 in zip(indexes1, indexes2):
 
             # n is the index from the shorter string
             # so that's the index we multiply by the offset
             # (ibid.)
 
-            closest_other = min(indexes1, key=lambda n: abs(n * offset - index2))
+            closest_other = min(indexes1,
+                                key=lambda n: abs(n / length1 - index2 / length2))
             close_indexes_1.append(closest_other)
             close_indexes_2.append(index2)
 
@@ -169,15 +185,13 @@ def find_intersection_indexes(word1, word2):
     # and multiplying the indexes of characters in the shorter string by it
     # so that they may more accurately match the indexes of characters in the longer string
 
-    if len(word1) != len(word2):
-        offset = len(word2) / len(word1)
-    else:
-        offset = 1
+    find_closest = partial(find_closest_indexes,
+                           length1=len(word1), length2=len(word2))
 
     for letter in intersection:
         indexes1 = intersection_1[letter]
         indexes2 = intersection_2[letter]
-        closest1, closest2 = find_closest_indexes(indexes1, indexes2, offset)
+        closest1, closest2 = find_closest(indexes1, indexes2)
 
         adjusted_intersection_1[letter] = closest1
         adjusted_intersection_2[letter] = closest2
@@ -185,7 +199,7 @@ def find_intersection_indexes(word1, word2):
     return adjusted_intersection_1, adjusted_intersection_2
 
 
-def make_pattern_word(indexes_word, word):
+def make_pattern_word(indexes_word, word, verbose=False):
     pattern_length = len(word)
     pattern = [None for _ in range(pattern_length)]
 
@@ -222,7 +236,8 @@ def make_pattern_word(indexes_word, word):
                 # this pattern ends in None
                 optimised_pattern.append(tuple(nones))
 
-    pprint((word, optimised_pattern))
+    if verbose:
+        print(word, pformat(optimised_pattern))
 
     return optimised_pattern
 
@@ -243,8 +258,8 @@ def find_pattern_pair(word1, word2, verbose=False):
     except (TypeError, ValueError):
         return None
 
-    pattern1, pattern2 = (make_pattern_word(indexes1, word1),
-                          make_pattern_word(indexes2, word2))
+    pattern1, pattern2 = (make_pattern_word(indexes1, word1, verbose=verbose),
+                          make_pattern_word(indexes2, word2, verbose=verbose))
 
     shorter_pattern, longer_pattern = sorted((pattern1, pattern2), key=len)
 
@@ -271,10 +286,10 @@ def find_pattern_pair(word1, word2, verbose=False):
             # for this, we need to split the existing pattern
             # and insert the tuple of Nones before the last character
 
-            *start, end = common_pattern
-            num_remaining_elements = len(longer_pattern) - i1
-            end_nones = tuple(None for _ in range(num_remaining_elements))
-            common_pattern = start + [end_nones, end]
+            # *start, end = common_pattern
+            # num_remaining_elements = len(longer_pattern) - i1
+            # end_nones = tuple(None for _ in range(num_remaining_elements))
+            # common_pattern = start + [end_nones, end]
 
             # iteration is over
             break
