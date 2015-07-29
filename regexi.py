@@ -5,16 +5,17 @@ from collections import defaultdict
 from functools import partial
 from itertools import combinations, chain, zip_longest
 from pprint import pprint, pformat
+import re
 
 from greenery import lego
 
-class AmbiguousCharacter:
+class AmbiguousElement:
     def __init__(self, chars):
         temp_chars = []
         for char in chars:
             if isinstance(char, str):
                 temp_chars.append(char)
-            elif isinstance(char, AmbiguousCharacter):
+            elif isinstance(char, AmbiguousElement):
                 temp_chars += list(char.chars)
             elif isinstance(char, (list, tuple)):
                 temp_chars += list(char)
@@ -75,8 +76,8 @@ def find_intersection(word1, word2):
 
     for element in word1:
         for other_element in word2:
-            if (isinstance(element, AmbiguousCharacter)
-                and isinstance(other_element, AmbiguousCharacter)):
+            if (isinstance(element, AmbiguousElement)
+                and isinstance(other_element, AmbiguousElement)):
                 if element == other_element:
                     ambiguous_intersection = element.intersection(other_element)
 
@@ -87,10 +88,10 @@ def find_intersection(word1, word2):
 
                         intersection.add(e)
 
-            elif isinstance(element, AmbiguousCharacter):
+            elif isinstance(element, AmbiguousElement):
                 if other_element in element:
                     intersection.add(other_element)
-            elif isinstance(other_element, AmbiguousCharacter):
+            elif isinstance(other_element, AmbiguousElement):
                 if element in other_element:
                     intersection.add(element)
             else:
@@ -104,7 +105,7 @@ def get_common_letters(word, intersection):
     intersection_word = defaultdict(list)
 
     for n, element in enumerate(word):
-        if isinstance(element, AmbiguousCharacter):
+        if isinstance(element, AmbiguousElement):
             for character in element:
                 if character in intersection:
                     intersection_word[character].append(n)
@@ -200,7 +201,7 @@ def make_pattern_word(indexes_word, word, verbose=False):
                 pass
             else:
                 # a letter has already been assigned to that index
-                pattern[index] = AmbiguousCharacter((pattern[index], letter))
+                pattern[index] = AmbiguousElement((pattern[index], letter))
 
     # collapse the None's (put consecutive None's into tuples)
     # we need this to build the general pattern later
@@ -304,7 +305,7 @@ def find_pattern_pair(word1, word2, verbose=False):
                 # falling back to the 'ambiguous' pattern
                 # where the same position may be occupied by 2+ characters
 
-                common_pattern.append(AmbiguousCharacter((element1, element2)))
+                common_pattern.append(AmbiguousElement((element1, element2)))
 
             i1 += 1
             i2 += 1
@@ -323,21 +324,6 @@ def find_pattern_pair(word1, word2, verbose=False):
 
 
 def find_pattern(words, verbose=False, test_every_step=False):
-    # words_pairs = combinations(words, 2)
-    # patterns_pairs = [find_pattern_pair(word1, word2, verbose=verbose)
-    #                   for word1, word2 in words_pairs]
-    #
-    # while len(patterns_pairs) > 2:
-    #     one, two, *rest = patterns_pairs
-    #     common_pattern = find_pattern_pair(one, two)
-    #     patterns_pairs = [common_pattern] + rest
-    #     if verbose:
-    #         print('*' * 10)
-    #         print('{} patterns remaining'.format(len(patterns_pairs)))
-    #         pprint(patterns_pairs)
-    #
-    # one, two = patterns_pairs
-    # common_pattern = find_pattern_pair(one, two, verbose)
 
     while len(words) > 2:
         one, two, *rest = words
@@ -375,11 +361,14 @@ def make_regex(pattern):
     return expression
 
 
-def run(file, tolerance, verbose=False, test_every_step=False):
-    with open(file) as word_list:
-        words = [w.strip() for w in word_list.readlines()]
-    pattern = find_pattern(words, verbose=verbose,
-                           test_every_step=test_every_step)
+def run(file, tolerance, verbose=False):
+    with open(file) as word_list_file:
+        words = re.findall('\w+', word_list_file.read(), re.MULTILINE)
+
+    if not words:
+        raise ValueError('the word list is empty')
+
+    pattern = find_pattern(words, verbose=verbose)
 
     regex = make_regex(pattern)
     if not pattern:
@@ -389,20 +378,6 @@ def run(file, tolerance, verbose=False, test_every_step=False):
             return None
     else:
         return str(regex)
-
-
-def test(words, pattern):
-    pass
-    # from regexi_test import test_regex
-    #
-    # regex = str(make_regex(pattern))
-    # words = (str(make_regex(word)) for word in words)
-    #
-    # print('testing {} on {} and {}'.format(regex, *words))
-    #
-    # if regex:
-    #     assert test_regex(regex, words)
-    #     print('passed')
 
 
 if __name__ == '__main__':

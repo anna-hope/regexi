@@ -13,7 +13,7 @@ def test_regex(regex, words):
             yield word, False
 
 def run_test(file):
-    regex = regexi.run(file, None, verbose=True, test_every_step=True)
+    regex = regexi.run(file, None, verbose=True)
     with open(file) as word_list:
         words = (w.strip() for w in word_list.readlines())
 
