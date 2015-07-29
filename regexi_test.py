@@ -30,6 +30,8 @@ def run_test(file):
     if not fail:
         print('all tests passed')
 
+    return not fail
+
 if __name__ == '__main__':
     arg_parser = ArgumentParser()
     arg_parser.add_argument('file', help='file with a list of words')
