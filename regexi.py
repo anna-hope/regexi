@@ -9,36 +9,59 @@ import re
 
 from greenery import lego
 
-class AmbiguousElement:
+
+class Element:
+
+    def __init__(self, value):
+        self.value = value
+        self.frequency = 1
+
+    def __repr__(self):
+        return repr(self.value)
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def __eq__(self, other):
+        if other:
+            return self.value == other.value
+        else:
+            # the other must be None
+            return False
+
+    def __len__(self):
+        return len(self.value)
+
+    def __contains__(self, item):
+        return item in self.value
+
+    def __iter__(self):
+        return iter(self.value)
+
+    def intersection(self, other) -> set:
+        return self.value.intersection(other.value)
+
+class StringElement(Element, str):
+    pass
+
+class AmbiguousElement(Element):
     def __init__(self, chars):
         temp_chars = []
         for char in chars:
-            if isinstance(char, str):
-                temp_chars.append(char)
-            elif isinstance(char, AmbiguousElement):
+            if isinstance(char, AmbiguousElement):
                 temp_chars += list(char.chars)
             elif isinstance(char, (list, tuple)):
                 temp_chars += list(char)
+            else:
+                temp_chars.append(char)
 
-        self.chars = frozenset(temp_chars)
+        super().__init__(frozenset(temp_chars))
 
     def __repr__(self):
-        return '[{}]'.format('/'.join(sorted(self.chars)))
+        return '[{}]'.format('/'.join(sorted(self.value)))
 
     def __str__(self):
         return repr(self)
-
-    def __hash__(self):
-        return hash(self.chars)
-
-    def __iter__(self):
-        return iter(self.chars)
-
-    def __len__(self):
-        return len(self.chars)
-
-    def __contains__(self, item):
-        return item in self.chars
 
     def __eq__(self, other):
         for character in self:
@@ -53,9 +76,6 @@ class AmbiguousElement:
     def __add__(self, other):
         new_chars = list(self.chars) + list(other.chars)
         self.chars = frozenset(new_chars)
-
-    def intersection(self, other) -> set:
-        return self.chars.intersection(other.chars)
 
 
 
@@ -75,6 +95,7 @@ def find_intersection(word1, word2):
     word1 = [c for c in word1 if c]
 
     for element in word1:
+
         for other_element in word2:
             if (isinstance(element, AmbiguousElement)
                 and isinstance(other_element, AmbiguousElement)):
@@ -114,12 +135,6 @@ def get_common_letters(word, intersection):
                 intersection_word[element].append(n)
 
     return intersection_word
-
-# TODO: try to find close indexes based on their percentage position in the string
-# e.g. 3/4 and 5/6 should be closer than 3/4 and 3/6
-
-def pick_closest(index, other_indexes, length1, length2):
-    closest = min(other_indexes)
 
 
 def find_closest_indexes(indexes1, indexes2, length1, length2):
@@ -268,7 +283,8 @@ def find_pattern_pair(word1, word2, verbose=False):
         except IndexError:
 
             # this means the shorter pattern has been exhausted
-            # and we need to fill the rest of the pattern with Nones
+
+            # we need to fill the rest of the pattern with Nones
             # caveat: we need to keep the last character of the shorter pattern last
             # so that strings which match on the last character produce a more accurate pattern
             # (e.g. 'olga' and 'hanna')
@@ -367,6 +383,8 @@ def run(file, tolerance, verbose=False):
 
     if not words:
         raise ValueError('the word list is empty')
+
+    words = [[StringElement(char) for char in word] for word in words]
 
     pattern = find_pattern(words, verbose=verbose)
 
