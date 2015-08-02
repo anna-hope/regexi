@@ -15,6 +15,10 @@ def test_regex_matches(regex, words):
             yield word, False
 
 def test_all(regex, words, must_work=True):
+    if not regex:
+        print('no regex given')
+        return False
+
     results1, results2 = tee(test_regex_matches(regex, words), 2)
 
     status = all(result for _, result in results1)
@@ -34,13 +38,11 @@ def test_all(regex, words, must_work=True):
 
 
 
-def run_test(file):
-    regex = regexi.run(file, None, verbose=True)
+def run_test(file, mode):
+    regex = regexi.run(file, mode, verbose=True)
+
     with open(file) as word_list:
         words = [w.strip() for w in word_list.readlines()]
-
-    counted_chars = Counter(chain.from_iterable(list(word) for word in words))
-    pprint(counted_chars)
 
 
     print('testing', regex)
@@ -52,4 +54,4 @@ if __name__ == '__main__':
     arg_parser.add_argument('file', help='file with a list of words')
     arg_parser.add_argument('--mode', choices=('all', 'vs'), default='all')
     args = arg_parser.parse_args()
-    run_test(args.file)
+    run_test(args.file, args.mode)
