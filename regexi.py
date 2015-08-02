@@ -2,8 +2,8 @@ __author__ = 'anton'
 
 from argparse import ArgumentParser
 from collections import defaultdict
+from enum import Enum
 from functools import partial
-from itertools import combinations, chain, zip_longest
 from pprint import pprint, pformat
 import re
 
@@ -12,9 +12,9 @@ from greenery import lego
 
 class Element:
 
-    def __init__(self, value):
+    def __init__(self, value, frequency=1):
         self.value = value
-        self.frequency = 1
+        self.frequency = frequency
 
     def __repr__(self):
         return repr(self.value)
@@ -44,21 +44,24 @@ class Element:
 class StringElement(Element, str):
     pass
 
+
 class AmbiguousElement(Element):
-    def __init__(self, chars):
-        temp_chars = []
-        for char in chars:
-            if isinstance(char, AmbiguousElement):
-                temp_chars += list(char.chars)
-            elif isinstance(char, (list, tuple)):
-                temp_chars += list(char)
+    def __init__(self, elements):
+        temp_elements = []
+        for element in elements:
+            if isinstance(element, AmbiguousElement):
+                temp_elements += list(element.value)
+            elif isinstance(element, (list, tuple)):
+                temp_elements += list(element)
             else:
-                temp_chars.append(char)
+                temp_elements.append(element)
 
-        super().__init__(frozenset(temp_chars))
+        frequency = max(e.frequency for e in temp_elements)
 
-    def __repr__(self):
-        return '[{}]'.format('/'.join(sorted(self.value)))
+        super().__init__(frozenset(temp_elements), frequency=frequency)
+
+    # def __repr__(self):
+    #     return '[{}]'.format('/'.join(sorted(self.value)))
 
     def __str__(self):
         return repr(self)
@@ -73,10 +76,9 @@ class AmbiguousElement(Element):
         else:
             return False
 
-    def __add__(self, other):
-        new_chars = list(self.chars) + list(other.chars)
-        self.chars = frozenset(new_chars)
-
+class Mode(Enum):
+    all = 'all'
+    compare_two = 'vs'
 
 
 
@@ -136,10 +138,15 @@ def get_common_letters(word, intersection):
 
     return intersection_word
 
+def normalise_index(index_x, index_y, length_x, length_y):
+    normalised = abs(index_x / length_x - index_y / length_y)
+    return normalised
+
 
 def find_closest_indexes(indexes1, indexes2, length1, length2):
     # take the indexes from the word which has less of them
     # pick the most closely located indexes between the two words
+    # normalising the indexes according to the length of the word
 
     close_indexes_1 = []
     close_indexes_2 = []
@@ -148,6 +155,7 @@ def find_closest_indexes(indexes1, indexes2, length1, length2):
         close_indexes_1, close_indexes_2 = indexes1, indexes2
 
     elif len(indexes1) < len(indexes2):
+        closest_with_lengths = partial(normalise_index, length_x=length2, length_y=length1)
 
         for index1, index2 in zip(indexes1, indexes2):
 
@@ -155,12 +163,13 @@ def find_closest_indexes(indexes1, indexes2, length1, length2):
             # so we multiply them by the offset
             # (see below for explanation)
 
-            closest_other = min(indexes2,
-                                key=lambda n: abs(n / length2 - index1 / length1))
+            closest = partial(closest_with_lengths, index_y=index1)
+            closest_other = min(indexes2, key=closest)
             close_indexes_1.append(index1)
             close_indexes_2.append(closest_other)
 
     else:
+        closest_with_lengths = partial(normalise_index, length_x=length1, length_y=length2)
 
         for index1, index2 in zip(indexes1, indexes2):
 
@@ -168,8 +177,8 @@ def find_closest_indexes(indexes1, indexes2, length1, length2):
             # so that's the index we multiply by the offset
             # (ibid.)
 
-            closest_other = min(indexes1,
-                                key=lambda n: abs(n / length1 - index2 / length2))
+            closest = partial(closest_with_lengths, index_y=index2)
+            closest_other = min(indexes1, key=closest)
             close_indexes_1.append(closest_other)
             close_indexes_2.append(index2)
 
@@ -213,7 +222,7 @@ def make_pattern_word(indexes_word, word, verbose=False):
                 pattern[index] = letter
             elif pattern[index] == letter:
                 # this letter occurs twice and has already been assigned
-                pass
+                pattern[index].frequency += letter.frequency
             else:
                 # a letter has already been assigned to that index
                 pattern[index] = AmbiguousElement((pattern[index], letter))
@@ -247,7 +256,6 @@ def make_pattern_word(indexes_word, word, verbose=False):
 
 
 def find_pattern_pair(word1, word2, verbose=False):
-    # word1 should be the shorter word (if length is unequal)
 
     if verbose:
         print('*' * 10)
@@ -259,8 +267,13 @@ def find_pattern_pair(word1, word2, verbose=False):
 
         indexes1, indexes2 = find_intersection_indexes(word1, word2)
 
-    except (TypeError, ValueError):
+    except ValueError:
+        if verbose:
+            print('no intersection found')
         return None
+    except TypeError:
+        return None
+
 
     pattern1, pattern2 = (make_pattern_word(indexes1, word1, verbose=verbose),
                           make_pattern_word(indexes2, word2, verbose=verbose))
@@ -314,13 +327,15 @@ def find_pattern_pair(word1, word2, verbose=False):
         else:
             # neither of them are None tuples
             if element1 == element2:
+                element1.frequency += element2.frequency
                 common_pattern.append(element1)
             else:
 
                 # the order cannot be established unambiguously
                 # falling back to the 'ambiguous' pattern
                 # where the same position may be occupied by 2+ characters
-
+                element1.frequency += 1
+                element2.frequency += 1
                 common_pattern.append(AmbiguousElement((element1, element2)))
 
             i1 += 1
@@ -339,19 +354,81 @@ def find_pattern_pair(word1, word2, verbose=False):
     return unpacked_pattern
 
 
-def find_pattern(words, verbose=False, test_every_step=False):
+def find_pattern(words, allow_unmatched=False, verbose=False):
 
-    while len(words) > 2:
+    unmatched_words = []
+    combined_pattern = None
+    rest = words
+
+    while rest:
         one, two, *rest = words
-        combined_pattern = find_pattern_pair(one, two, verbose=verbose)
-        words = [combined_pattern] + rest
+
         if verbose:
             print('remaining words:')
-            pprint(words)
+            pprint(rest)
 
-    combined_pattern = find_pattern_pair(words[0], words[1], verbose=verbose)
+        new_pattern = find_pattern_pair(one, two, verbose=verbose)
 
-    return combined_pattern
+        if new_pattern:
+            # only assign the pattern if one could be found
+            combined_pattern = new_pattern
+        else:
+            if allow_unmatched:
+                unmatched_words.append(two)
+            else:
+                return None, rest
+
+        words = [combined_pattern] + rest
+
+    return combined_pattern, unmatched_words
+
+def check_valid(pattern, words, verbose=False):
+    """
+    A pattern is valid if that pattern and that word have an intersection.
+    This function tests whether an intersection may be found between the given pattern
+    and every given word.
+    :param pattern:
+    :param words:
+    :param verbose:
+    :return:
+    """
+
+    for word in words:
+        if not find_intersection(pattern, word):
+            if verbose:
+                print('failed to find an intersection for {} and {}'.format(pattern, word))
+            return False
+    else:
+        return True
+
+def combine_patterns(patterns):
+    shortest, *other = sorted(patterns)
+    # TODO: finish
+
+
+def find_pattern_combination(words, verbose=False):
+    initial_patterns = []
+    unmatched_words = words
+
+    while len(unmatched_words) >= 2:
+        initial_pattern, unmatched_words = find_pattern(unmatched_words,
+                                                        allow_unmatched=True,
+                                                        verbose=verbose)
+        if initial_pattern:
+            initial_patterns.append(initial_pattern)
+        else:
+            # no new pattern could be find
+            break
+
+    if unmatched_words:
+        # if there are still unmatched words, add them as 'patterns'
+        initial_patterns += unmatched_words
+
+    # TODO: finish
+
+
+
+
 
 
 def make_regex(pattern):
@@ -376,8 +453,21 @@ def make_regex(pattern):
 
     return expression
 
+def run_find_all(words, verbose=False):
+    pattern, unmatched_words = find_pattern(words, verbose=verbose)
+    regex = make_regex(pattern)
+    if not pattern:
+        return ''
+    else:
+        return str(regex)
 
-def run(file, tolerance, verbose=False):
+def run_compare_two(words1, words2, verbose=False):
+    # TODO: words that can be related at all always will be, no matter the existing pattern
+    # TODO: you have to work out a way to combine patterns which are not related on the surface
+    ...
+
+
+def run(file, mode, verbose=False):
     with open(file) as word_list_file:
         words = re.findall('\w+', word_list_file.read(), re.MULTILINE)
 
@@ -386,16 +476,19 @@ def run(file, tolerance, verbose=False):
 
     words = [[StringElement(char) for char in word] for word in words]
 
-    pattern = find_pattern(words, verbose=verbose)
-
-    regex = make_regex(pattern)
-    if not pattern:
-        if tolerance == 0:
-            return '.+'
-        else:
-            return None
+    mode = Mode(mode)
+    if mode == Mode.all:
+        result = run_find_all(words, verbose=verbose)
+        print(result)
+    elif mode == Mode.compare_two:
+        ...
+        result = None
     else:
-        return str(regex)
+        raise ValueError('unsupported mode')
+
+    return result
+
+
 
 
 if __name__ == '__main__':
@@ -403,5 +496,6 @@ if __name__ == '__main__':
     arg_parser.add_argument('file', help='file with a list of words')
     arg_parser.add_argument('-t', '--tolerance', type=int, choices=range(101),
                             default=70)
+    arg_parser.add_argument('--mode', choices=('all', 'vs'), default='all')
     args = arg_parser.parse_args()
     run(args.file, args.tolerance)
