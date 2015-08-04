@@ -21,12 +21,12 @@ def test_all(regex, words, must_work=True):
 
     results1, results2 = tee(test_regex_matches(regex, words), 2)
 
-    status = all(result for _, result in results1)
+    test_status = all(result for _, result in results1)
 
     if not must_work:
-        status = not status
+        test_status = not test_status
 
-    if status:
+    if test_status:
         print('all words passed the test')
         return True
     else:
