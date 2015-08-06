@@ -255,8 +255,7 @@ def make_pattern_word(indexes_word, word, verbose=False):
     return optimised_pattern
 
 
-def find_pattern_pair(word1, word2, verbose=False):
-
+def get_pattern_pair(word1, word2, verbose=False):
     if verbose:
         print('*' * 10)
         print('words:', word1, word2)
@@ -277,6 +276,11 @@ def find_pattern_pair(word1, word2, verbose=False):
 
     pattern1, pattern2 = (make_pattern_word(indexes1, word1, verbose=verbose),
                           make_pattern_word(indexes2, word2, verbose=verbose))
+
+    return pattern1, pattern2
+
+
+def find_common_pattern(pattern1, pattern2, verbose=False):
 
     shorter_pattern, longer_pattern = sorted((pattern1, pattern2), key=len)
 
@@ -367,7 +371,8 @@ def find_pattern(words, allow_unmatched=False, verbose=False):
             print('remaining words:')
             pprint(rest)
 
-        new_pattern = find_pattern_pair(one, two, verbose=verbose)
+        pattern1, pattern2 = get_pattern_pair(one, two, verbose=verbose)
+        new_pattern = find_common_pattern(pattern1, pattern2, verbose=verbose)
 
         if new_pattern:
             # only assign the pattern if one could be found
@@ -402,8 +407,7 @@ def check_valid(pattern, words, verbose=False):
         return True
 
 def combine_patterns(patterns):
-    shortest, *other = sorted(patterns)
-    # TODO: finish
+    ...
 
 
 def find_pattern_combination(words, verbose=False):
@@ -476,15 +480,9 @@ def run(file, mode, verbose=False):
 
     words = [[StringElement(char) for char in word] for word in words]
 
-    mode = Mode(mode)
-    if mode == Mode.all:
-        result = run_find_all(words, verbose=verbose)
-        print(result)
-    elif mode == Mode.compare_two:
-        ...
-        result = None
-    else:
-        raise ValueError('unsupported mode')
+    result = run_find_all(words, verbose=verbose)
+    print(result)
+
 
     return result
 
@@ -497,5 +495,6 @@ if __name__ == '__main__':
     arg_parser.add_argument('-t', '--tolerance', type=int, choices=range(101),
                             default=70)
     arg_parser.add_argument('--mode', choices=('all', 'vs'), default='all')
+    arg_parser.add_argument('--combine-patterns', action='store_true')
     args = arg_parser.parse_args()
     run(args.file, args.tolerance)
