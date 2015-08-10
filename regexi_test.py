@@ -39,7 +39,7 @@ def test_all(regex, words, must_work=True):
 
 
 def run_test(file, mode):
-    regex = regexi.run(file, mode, verbose=True)
+    regex = regexi.run(file, False, verbose=True)
 
     with open(file) as word_list:
         words = [w.strip() for w in word_list.readlines()]
