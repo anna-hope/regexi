@@ -49,6 +49,7 @@ def get_differences(first_set, second_set):
     return unique_set1, unique_set2
 
 
+
 def pick_best_segment(scores):
     maximum = max(enumerate(scores), key=lambda x: x[1])
     best_segment = maximum[0]
@@ -93,7 +94,6 @@ def pick_best_set(scores1, scores2):
 
 def filter_spurious_data(unique_set):
     for segment_point in unique_set:
-        # threshold = min(5, sum(segment_point.values()) * 0.001)
         threshold = 5
         good_segments = {}
         for segment, count in segment_point.items():
@@ -124,44 +124,55 @@ def run_letters(first, second, verbose=False):
         differences = differences_2
         best_segment = pick_best_segment(scores_2)
 
-    differences = set(chain.from_iterable(subset for subset in differences if subset))
-    # differences = differences[best_segment]
+    differences = set(differences[best_segment])
     return differences, best_segment
 
 
+def run_words(words, ngrams=0, rtl=False):
+    first, second = words
+
+    if rtl:
+        first = (tuple(reversed(word)) for word in first)
+        second = (tuple(reversed(word)) for word in second)
+
+    if ngrams > 1:
+        first = ngramicise(first, ngrams)
+        second = ngramicise(second, ngrams)
+
+    result = run_letters(first, second)
+    best_segment_letters = result[0]
+
+    if ngrams > 1:
+        if rtl:
+            best_segment_letters = (reversed(element) for element in best_segment_letters)
+        best_segment_letters = {''.join(ngram) for ngram in best_segment_letters}
+
+    return best_segment_letters
 
 
-def run(file, ngrams):
+def run_multi_ngrams(words, ngrams):
+    for n in range(1, ngrams+1):
+        best_segment_ltr = run_words(words, n)
+        best_segment_rtl = run_words(words, n, rtl=True)
+
+        yield best_segment_ltr, best_segment_rtl
+
+
+
+
+def run(file, ngrams, with_ngrams=False):
     with open(file) as words_file:
       words = json.load(words_file)
 
+    if with_ngrams:
+        result = run_multi_ngrams(words, ngrams)
+        pprint(list(result))
+    else:
+        best_segment_ltr = run_words(words, ngrams)
+        best_segment_rtl = run_words(words, ngrams, rtl=True)
 
-    # left to right
-    print('left to right')
-    first, second = words
-
-    if ngrams > 1:
-        first = ngramicise(first, ngrams)
-        second = ngramicise(second, ngrams)
-    ltr = run_letters(first, second)
-    pprint(ltr)
-
-    # right to left
-    print()
-    print('*' * 10)
-    print('right to left')
-    first, second = words
-    first = [list(reversed(word)) for word in first]
-    second = [list(reversed(word)) for word in second]
-
-    if ngrams > 1:
-        first = ngramicise(first, ngrams)
-        second = ngramicise(second, ngrams)
-    rtl = run_letters(first, second)
-    pprint(rtl)
-
-
-
+        pprint(best_segment_ltr)
+        pprint(best_segment_rtl)
 
 
 
@@ -172,6 +183,7 @@ def run(file, ngrams):
 if __name__ == '__main__':
     arg_parser = ArgumentParser()
     arg_parser.add_argument('words')
-    arg_parser.add_argument('--ngrams', type=int, default=1)
+    arg_parser.add_argument('-ng', '--ngrams', type=int, default=1, required=False)
+    arg_parser.add_argument('--with-ngrams', action='store_true')
     args = arg_parser.parse_args()
-    run(args.words, args.ngrams)
+    run(args.words, args.ngrams, args.with_ngrams)
