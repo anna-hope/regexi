@@ -124,11 +124,11 @@ def run_letters(first, second, verbose=False):
         differences = differences_2
         best_segment = pick_best_segment(scores_2)
 
-    differences = set(differences[best_segment])
+    differences = differences[best_segment]
     return differences, best_segment
 
 
-def run_words(words, ngrams=0, rtl=False):
+def run_words(words, ngrams=0, rtl=False, verbose=False):
     first, second = words
 
     if rtl:
@@ -139,40 +139,57 @@ def run_words(words, ngrams=0, rtl=False):
         first = ngramicise(first, ngrams)
         second = ngramicise(second, ngrams)
 
-    result = run_letters(first, second)
-    best_segment_letters = result[0]
+    best_segment_letters, n = run_letters(first, second)
+    best_segment_letters = tuple(best_segment_letters)
+
+    if verbose:
+        print('most informative segment:', n)
 
     if ngrams > 1:
         if rtl:
             best_segment_letters = (reversed(element) for element in best_segment_letters)
-        best_segment_letters = {''.join(ngram) for ngram in best_segment_letters}
+        best_segment_letters = tuple(''.join(ngram) for ngram in best_segment_letters)
+
+    if verbose:
+        print(best_segment_letters)
 
     return best_segment_letters
 
 
-def run_multi_ngrams(words, ngrams):
+def run_multi_ngrams(words, ngrams, verbose=False):
     for n in range(1, ngrams+1):
-        best_segment_ltr = run_words(words, n)
-        best_segment_rtl = run_words(words, n, rtl=True)
+        best_segment_ltr = run_words(words, n, verbose=verbose)
+        best_segment_rtl = run_words(words, n, rtl=True, verbose=verbose)
 
-        yield best_segment_ltr, best_segment_rtl
-
-
+        yield set(best_segment_ltr + best_segment_rtl)
 
 
-def run(file, ngrams, with_ngrams=False):
+def run(file, ngrams, with_ngrams=False, verbose=False):
     with open(file) as words_file:
       words = json.load(words_file)
 
     if with_ngrams:
+        if verbose:
+            print('running with up to {}-grams'.format(ngrams))
+
         result = run_multi_ngrams(words, ngrams)
         pprint(list(result))
-    else:
-        best_segment_ltr = run_words(words, ngrams)
-        best_segment_rtl = run_words(words, ngrams, rtl=True)
 
-        pprint(best_segment_ltr)
-        pprint(best_segment_rtl)
+
+    else:
+
+        if verbose:
+            print('running left-to-right')
+        best_segment_ltr = run_words(words, ngrams, verbose=verbose)
+
+        if verbose:
+            print('running right-to-left')
+
+        best_segment_rtl = run_words(words, ngrams, rtl=True, verbose=verbose)
+
+        best_elements = set(best_segment_ltr + best_segment_rtl)
+
+        pprint(best_elements)
 
 
 
@@ -184,6 +201,8 @@ if __name__ == '__main__':
     arg_parser = ArgumentParser()
     arg_parser.add_argument('words')
     arg_parser.add_argument('-ng', '--ngrams', type=int, default=1, required=False)
-    arg_parser.add_argument('--with-ngrams', action='store_true')
+    arg_parser.add_argument('--with-ngrams', action='store_true',
+                            help='')
+    arg_parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     args = arg_parser.parse_args()
-    run(args.words, args.ngrams, args.with_ngrams)
+    run(args.words, args.ngrams, args.with_ngrams, verbose=args.verbose)
