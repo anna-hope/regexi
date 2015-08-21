@@ -219,7 +219,7 @@ def run_two(words, ngrams, with_ngrams=False, verbose=False):
 
         if verbose:
             print('running left-to-right')
-            
+
         best_segment_ltr = run_words(words, ngrams, verbose=verbose)
 
         if verbose:
@@ -231,7 +231,7 @@ def run_two(words, ngrams, with_ngrams=False, verbose=False):
 
         return best_elements
 
-def run_many(words, verbose=False):
+def run_many(words, ngrams, with_ngrams=False, verbose=False):
 
     for n, group in enumerate(words):
         other_group = tuple(chain.from_iterable(g for g in words if g != group))
@@ -240,8 +240,8 @@ def run_many(words, verbose=False):
             print('*' * 5)
             print('run', n + 1)
             pprint(word_groups)
-        this_result_ltr = run_words(word_groups, verbose=verbose)
-        this_result_rtl = run_words(word_groups, rtl=True, verbose=False)
+        this_result_ltr = run_words(word_groups, ngrams=ngrams, verbose=verbose)
+        this_result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=False)
 
         yield this_result_ltr, this_result_rtl
 
@@ -257,7 +257,7 @@ def run(file, ngrams, with_ngrams=False, verbose=False):
     elif len(words) > 2:
 
         # TODO integrate with run_two
-        result = tuple(run_many(words, verbose=verbose))
+        result = tuple(run_many(words, ngrams, with_ngrams, verbose=verbose))
     else:
         raise ValueError('the file must have 2 or more lists of words')
 
