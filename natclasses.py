@@ -8,6 +8,7 @@ import json
 import math
 from operator import add
 from pprint import pprint, pformat
+import statistics
 
 def ngramicise(word_list, n=2):
     for word in word_list:
@@ -63,35 +64,6 @@ def get_differences(first_set, second_set):
     return unique_set1, unique_set2
 
 
-def get_segment_scores(unique_set: list, segment_list: list):
-    """
-    get the score of each set of unique letters for each segment of the words.
-    this score is calculated based on how many of all letters at that segment
-    are the letters unique for the set of given words,
-    i.e. how well can a set of unique letters account for the whole segment,
-    while staying short.
-    :param unique_letters:
-    :param letters_at_segment:
-    :return:
-    """
-
-    total_counted = reduce(add, unique_set)
-
-    for unique_segment, whole_segment in zip(unique_set, segment_list):
-        if not unique_segment:
-            yield 0
-            continue
-
-        weighted_segment_freqs = (count + total_counted[letter]
-                                  for letter, count in unique_segment.items())
-        total_segment_freqs = sum(weighted_segment_freqs)
-        whole_segment_freqs = sum(whole_segment.values())
-        unique_length = len(unique_segment)
-
-        score = total_segment_freqs / whole_segment_freqs / unique_length
-        yield score
-
-
 
 def get_set_ratio(unique_set, top=3, verbose=True):
     all_set_frequencies = reduce(add, unique_set)
@@ -122,6 +94,40 @@ def pick_best_set(unique_1, unique_2):
         return 0
     else:
         return 1
+
+def get_segment_scores(unique_set: list, segment_list: list):
+    """
+    get the score of each set of unique letters for each segment of the words.
+    this score is calculated based on how many of all letters at that segment
+    are the letters unique for the set of given words,
+    i.e. how well can a set of unique letters account for the whole segment,
+    while staying short.
+    :param unique_letters:
+    :param letters_at_segment:
+    :return:
+    """
+
+    total_counted = reduce(add, unique_set)
+    avg_freq = statistics.mean(item[1] for item in total_counted.most_common(5))
+
+    for unique_segment, whole_segment in zip(unique_set, segment_list):
+        if not unique_segment:
+            yield 0
+            continue
+
+        # to each element's count at this segment, we add a 'weight'
+        # which is the difference between the element's total frequency
+        # and the average frequency of top 5 elements
+        # in the entire set of unique elements
+        weighted_segment_freqs = (count + (total_counted[letter] - avg_freq)
+                                  for letter, count in unique_segment.items())
+        total_segment_freqs = sum(weighted_segment_freqs)
+        whole_segment_freqs = sum(whole_segment.values())
+        unique_length = len(unique_segment)
+
+        score = total_segment_freqs / whole_segment_freqs / unique_length
+        yield score
+
 
 def pick_best_segment(scores):
     maximum = max(enumerate(scores), key=lambda x: x[1])
