@@ -65,16 +65,19 @@ def get_differences(first_set, second_set):
 
 
 
-def get_set_ratio(unique_set, top=3, verbose=True):
+def get_set_ratio(unique_set, top=3, verbose=False):
     all_set_frequencies = reduce(add, unique_set)
 
     if verbose:
         pprint(all_set_frequencies.most_common())
 
-    total_frequencies = sum(all_set_frequencies.values())
-    top_frequencies = sum(item[1] for item in all_set_frequencies.most_common(top))
+    # divide the frequency of top n elements by the frequency of the top n * 2 elements
+    # (sets of elements connected by a rule are usually heavily skewed towards the elements
+    # which form part of the rule)
+    most_top_frequencies = sum(item[1] for item in all_set_frequencies.most_common(top))
+    top_freqs = sum(item[1] for item in all_set_frequencies.most_common(top * 2))
 
-    top_vs_all = top_frequencies / total_frequencies
+    top_vs_all = most_top_frequencies / top_freqs
     return top_vs_all
 
 def pick_best_set(unique_1, unique_2):
@@ -85,10 +88,11 @@ def pick_best_set(unique_1, unique_2):
     :return:
     """
 
-    ratio_1, ratio_2 = get_set_ratio(unique_1), get_set_ratio(unique_2, verbose=False)
+    ratio_1, ratio_2 = get_set_ratio(unique_1), get_set_ratio(unique_2)
 
 
     best_set = max(ratio_1, ratio_2)
+    # print('----RATIOS----', ratio_1, ratio_2)
 
     if best_set is ratio_1:
         return 0
@@ -155,7 +159,7 @@ def run_letters(first, second, verbose=False, filter_spurious=True):
 
     if verbose:
         print('***')
-        pprint(unique_segment_lists, indent=4)
+        # pprint(unique_segment_lists, indent=4)
         print('---')
 
     best_set_index = pick_best_set(*unique_segment_lists)
@@ -173,10 +177,20 @@ def run_letters(first, second, verbose=False, filter_spurious=True):
 
     differences = best_set[best_segment]
 
-    return differences, best_segment
+    return differences, best_set_index, best_segment
 
 
 def run_words(words, ngrams=0, rtl=False, verbose=False):
+    """
+    Returns the optimal generalisation,
+    the list it came from and the segment in that list which gave it
+    :param words:
+    :param ngrams:
+    :param rtl:
+    :param verbose:
+    :return best_rule, best_set, best_segment:
+    """
+
     first, second = words
 
     if rtl:
@@ -187,11 +201,11 @@ def run_words(words, ngrams=0, rtl=False, verbose=False):
         first = ngramicise(first, ngrams)
         second = ngramicise(second, ngrams)
 
-    best_segment_letters, n = run_letters(first, second, verbose=verbose)
+    best_segment_letters, best_set, best_segment = run_letters(first, second, verbose=verbose)
     best_segment_letters = tuple(best_segment_letters)
 
     if verbose:
-        print('most informative segment:', n)
+        print('most informative segment:', best_segment)
 
     if ngrams > 1:
         if rtl:
@@ -201,7 +215,7 @@ def run_words(words, ngrams=0, rtl=False, verbose=False):
     if verbose:
         print(best_segment_letters)
 
-    return best_segment_letters
+    return best_segment_letters, best_set, best_segment
 
 
 def run_multi_ngrams(words, ngrams, verbose=False):
@@ -226,12 +240,12 @@ def run_two(words, ngrams, with_ngrams=False, verbose=False):
         if verbose:
             print('running left-to-right')
 
-        best_segment_ltr = run_words(words, ngrams, verbose=verbose)
+        best_segment_ltr = run_words(words, ngrams, verbose=verbose)[0]
 
         if verbose:
             print('running right-to-left')
 
-        best_segment_rtl = run_words(words, ngrams, rtl=True, verbose=verbose)
+        best_segment_rtl = run_words(words, ngrams, rtl=True, verbose=verbose)[0]
 
         best_elements = set(best_segment_ltr + best_segment_rtl)
 
@@ -239,17 +253,61 @@ def run_two(words, ngrams, with_ngrams=False, verbose=False):
 
 def run_many(words, ngrams, with_ngrams=False, verbose=False):
 
+    results_ltr, results_rtl = [], []
+
     for n, group in enumerate(words):
         other_group = tuple(chain.from_iterable(g for g in words if g != group))
-        word_groups = (group, other_group)
+        word_groups = (tuple(group), other_group)
+
         if verbose:
             print('*' * 5)
             print('run', n + 1)
             pprint(word_groups)
-        this_result_ltr = run_words(word_groups, ngrams=ngrams, verbose=verbose)
-        this_result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=False)
 
-        yield this_result_ltr, this_result_rtl
+        result_ltr = run_words(word_groups, ngrams=ngrams, verbose=verbose)
+        result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=False)
+
+        # we need this to pick the 'special sets' and the 'everything else' set
+        best_words_ltr = word_groups[result_ltr[1]]
+        best_words_rtl = word_groups[result_rtl[1]]
+
+        results_ltr.append((result_ltr, best_words_ltr))
+        results_rtl.append((result_rtl, best_words_rtl))
+
+    return results_ltr, results_rtl
+
+def pick_best_word_group(special_group, all_words):
+
+    for n, word_group in enumerate(all_words):
+        word_set = set(word_group)
+
+        if word_set.intersection(special_group):
+            return n
+
+
+def process_results_many(results, words):
+    best_groups = Counter({n: 0 for n in range(len(words))})
+    rules = []
+    best_segments = []
+
+    for result, best_word_set in results:
+        best_rule, best_set, best_segment = result
+        best_word_group = pick_best_word_group(best_word_set, words)
+
+        # add the best group to the counter
+        best_groups[best_word_group] += 1
+
+        rules.append((best_rule, best_word_group))
+        best_segments.append((best_word_group, best_word_group))
+
+
+
+    everything_else_group = min(best_groups, key=lambda item: best_groups[item])
+
+    pprint(rules)
+    pprint(best_segments)
+    pprint(everything_else_group)
+
 
 
 
@@ -262,8 +320,13 @@ def run(file, ngrams, with_ngrams=False, verbose=False):
         result = run_two(words, ngrams, with_ngrams, verbose)
     elif len(words) > 2:
 
-        # TODO integrate with run_two
-        result = tuple(run_many(words, ngrams, with_ngrams, verbose=verbose))
+        results_ltr, results_rtl = run_many(words, ngrams, with_ngrams, verbose=verbose)
+        processed_ltr = process_results_many(results_ltr, words)
+        processed_rtl = process_results_many(results_rtl, words)
+
+        return 0
+
+
     else:
         raise ValueError('the file must have 2 or more lists of words')
 
