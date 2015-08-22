@@ -2,7 +2,7 @@ __author__ = 'anton'
 
 from argparse import ArgumentParser
 from collections import Counter, namedtuple
-from functools import reduce
+from functools import reduce, partial
 from itertools import zip_longest, chain
 import json
 import math
@@ -230,11 +230,13 @@ def run_multi_ngrams(words, ngrams, verbose=False):
 def run_two(words, ngrams, with_ngrams=False, verbose=False):
 
     if with_ngrams:
-        if verbose:
-            print('running with up to {}-grams'.format(ngrams))
+        # if verbose:
+        #     print('running with up to {}-grams'.format(ngrams))
+        #
+        # result = run_multi_ngrams(words, ngrams)
+        # pprint(list(result))
 
-        result = run_multi_ngrams(words, ngrams)
-        pprint(list(result))
+         return NotImplemented
 
 
     else:
@@ -242,16 +244,20 @@ def run_two(words, ngrams, with_ngrams=False, verbose=False):
         if verbose:
             print('running left-to-right')
 
-        best_segment_ltr = run_words(words, ngrams, verbose=verbose)[0]
+        result_ltr = run_words(words, ngrams, verbose=verbose)
 
         if verbose:
             print('running right-to-left')
 
-        best_segment_rtl = run_words(words, ngrams, rtl=True, verbose=verbose)[0]
+        result_rtl = run_words(words, ngrams, rtl=True, verbose=verbose)
 
-        best_elements = set(best_segment_ltr + best_segment_rtl)
 
-        return best_elements
+        rules_ltr = GroupRule(*result_ltr)
+        rules_rtl = GroupRule(*result_rtl)
+
+        return rules_ltr, rules_rtl
+
+
 
 def run_many(words, ngrams, with_ngrams=False, verbose=False):
 
@@ -307,6 +313,31 @@ def process_results_many(results, words):
 
     return rules, else_group
 
+def make_regex_rule(rule_ltr, rule_rtl, min_length, max_length):
+    regex = []
+    combined_rule = set(rule_ltr.rule + rule_rtl.rule)
+
+    if len(combined_rule) > 1:
+        regex.append('[{}]'.format(''.join(combined_rule)))
+    else:
+        regex.append(combined_rule.pop())
+
+    # check if it occurs at beginnings of words
+    if rule_ltr.segment == 0 and min_length <= rule_rtl.segment + 1 <= max_length:
+        regex.append('.+')
+
+    # check if it occurs at ends of words
+    elif rule_rtl.segment == 0 and min_length <= rule_ltr.segment + 1 <= max_length:
+        regex = ['.+'] + regex
+
+    # it occurs in the middle
+    else:
+        regex = ['.*'] + regex + ['.*']
+
+    regex_string = ''.join(regex)
+
+    return regex_string
+
 def make_regex_rules(processed_ltr, procesed_rtl, words):
     rules_ltr, else_ltr = processed_ltr
     rules_rtl, else_rtl = procesed_rtl
@@ -314,36 +345,10 @@ def make_regex_rules(processed_ltr, procesed_rtl, words):
     assert else_ltr == else_rtl, ("'elsewhere' groups don't match: LTR is {} but RTL is {}"
                                   .format(else_ltr, else_rtl))
 
-    # get the length ranges for words
-    # this is needed to know if the rules identified above
-    # occur at beginnings or ends of words
-    word_lengths = set(len(word) for word in chain.from_iterable(words))
-    min_length, max_length = min(word_lengths), max(word_lengths)
+    regex_rules = (make_regex_rule_p(rule_ltr, rule_rtl) for rule_ltr, rule_rtl
+                    in zip(rules_ltr, rules_rtl))
+    return regex_rules
 
-    for rule_ltr, rule_rtl in zip(rules_ltr, rules_rtl):
-        regex = []
-        combined_rule = set(rule_ltr.rule + rule_rtl.rule)
-
-        if len(combined_rule) > 1:
-            regex.append('[{}]'.format(''.join(combined_rule)))
-        else:
-            regex.append(combined_rule.pop())
-
-        # check if it occurs at beginnings of words
-        if rule_ltr.segment == 0 and min_length <= rule_rtl.segment + 1 <= max_length:
-            regex.append('.+')
-
-        # check if it occurs at ends of words
-        elif rule_rtl.segment == 0 and min_length <= rule_ltr.segment + 1 <= max_length:
-            regex = ['.+'] + regex
-
-        # it occurs in the middle
-        else:
-            regex = ['.*'] + regex + ['.*']
-
-        regex_string = ''.join(regex)
-
-        yield regex_string
 
 
 
@@ -351,22 +356,34 @@ def run(file, ngrams, with_ngrams=False, verbose=False):
     with open(file) as words_file:
         words = json.load(words_file)
 
+    # get the length ranges for words
+    # this is needed to know if the rules identified above
+    # occur at beginnings or ends of words
+    word_lengths = set(len(word) for word in chain.from_iterable(words))
+    min_length, max_length = min(word_lengths), max(word_lengths)
+
+    global make_regex_rule_p # I know
+    make_regex_rule_p = partial(make_regex_rule,
+                                min_length=min_length, max_length=max_length)
+
     if len(words) == 2:
         result = run_two(words, ngrams, with_ngrams, verbose)
+
+        regex_rules = make_regex_rule_p(*result)
+
     elif len(words) > 2:
 
         results_ltr, results_rtl = run_many(words, ngrams, with_ngrams, verbose=verbose)
         rules_ltr = process_results_many(results_ltr, words)
         rules_rtl = process_results_many(results_rtl, words)
 
-        regex_rules = list(make_regex_rules(rules_ltr, rules_rtl, words))
-        result = regex_rules
+        regex_rules = tuple(make_regex_rules(rules_ltr, rules_rtl, words))
 
 
     else:
         raise ValueError('the file must have 2 or more lists of words')
 
-    pprint(result)
+    print('regex:', regex_rules)
 
 
 
