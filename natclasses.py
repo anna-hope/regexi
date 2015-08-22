@@ -378,6 +378,8 @@ def run(file, ngrams, with_ngrams=False, verbose=False):
         rules_rtl = process_results_many(results_rtl, words)
 
         regex_rules = tuple(make_regex_rules(rules_ltr, rules_rtl, words))
+        else_group = rules_ltr[1]
+        print("the 'else' group:", else_group)
 
 
     else:
