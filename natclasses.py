@@ -289,20 +289,61 @@ def pick_best_word_group(special_group, all_words):
 
 def process_results_many(results, words):
     best_groups = {n: 0 for n in range(len(words))}
-    rules = []
 
-    for result, best_word_set in results:
-        best_rule, best_set, best_segment = result
-        best_word_group = pick_best_word_group(best_word_set, words)
+    def get_rules():
+        for result, best_word_set in results:
+            best_rule, best_set, best_segment = result
+            best_word_group = pick_best_word_group(best_word_set, words)
 
-        # add the best group to the counter
-        best_groups[best_word_group] += 1
-        rule = GroupRule(best_rule, best_word_group, best_segment)
-        rules.append(rule)
+            # add the best group to the counter
+            best_groups[best_word_group] += 1
+            rule = GroupRule(best_rule, best_word_group, best_segment)
 
+            yield rule
+
+
+    rules = get_rules()
     else_group = min(best_groups, key=lambda item: best_groups[item])
 
     return rules, else_group
+
+def make_regex_rules(processed_ltr, procesed_rtl, words):
+    rules_ltr, else_ltr = processed_ltr
+    rules_rtl, else_rtl = procesed_rtl
+
+    assert else_ltr == else_rtl, ("'elsewhere' groups don't match: LTR is {} but RTL is {}"
+                                  .format(else_ltr, else_rtl))
+
+    # get the length ranges for words
+    # this is needed to know if the rules identified above
+    # occur at beginnings or ends of words
+    word_lengths = set(len(word) for word in chain.from_iterable(words))
+    min_length, max_length = min(word_lengths), max(word_lengths)
+
+    for rule_ltr, rule_rtl in zip(rules_ltr, rules_rtl):
+        regex = []
+        combined_rule = set(rule_ltr.rule + rule_rtl.rule)
+
+        if len(combined_rule) > 1:
+            regex.append('[{}]'.format(''.join(combined_rule)))
+        else:
+            regex.append(combined_rule.pop())
+
+        # check if it occurs at beginnings of words
+        if rule_ltr.segment == 0 and min_length <= rule_rtl.segment + 1 <= max_length:
+            regex.append('.+')
+
+        # check if it occurs at ends of words
+        elif rule_rtl.segment == 0 and min_length <= rule_ltr.segment + 1 <= max_length:
+            regex = ['.+'] + regex
+
+        # it occurs in the middle
+        else:
+            regex = ['.*'] + regex + ['.*']
+
+        regex_string = ''.join(regex)
+
+        yield regex_string
 
 
 
@@ -315,16 +356,11 @@ def run(file, ngrams, with_ngrams=False, verbose=False):
     elif len(words) > 2:
 
         results_ltr, results_rtl = run_many(words, ngrams, with_ngrams, verbose=verbose)
-        rules_ltr, else_ltr = process_results_many(results_ltr, words)
-        rules_rtl, else_rtl = process_results_many(results_rtl, words)
+        rules_ltr = process_results_many(results_ltr, words)
+        rules_rtl = process_results_many(results_rtl, words)
 
-        print('rules left-to-right: {}; elsewhere group: {}'.format(
-                    pformat(rules_ltr), else_ltr))
-        print('rules right-to-left: {}; elsewhere group: {}'.format(
-                    pformat(rules_rtl), else_rtl))
-
-
-        return 0
+        regex_rules = list(make_regex_rules(rules_ltr, rules_rtl, words))
+        result = regex_rules
 
 
     else:
