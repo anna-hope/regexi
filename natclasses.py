@@ -1,7 +1,7 @@
 __author__ = 'anton'
 
 from argparse import ArgumentParser
-from collections import Counter
+from collections import Counter, namedtuple
 from functools import reduce
 from itertools import zip_longest, chain
 import json
@@ -9,6 +9,8 @@ import math
 from operator import add
 from pprint import pprint, pformat
 import statistics
+
+GroupRule = namedtuple('GroupRule', ('rule', 'group', 'segment'))
 
 def ngramicise(word_list, n=2):
     for word in word_list:
@@ -286,9 +288,8 @@ def pick_best_word_group(special_group, all_words):
 
 
 def process_results_many(results, words):
-    best_groups = Counter({n: 0 for n in range(len(words))})
+    best_groups = {n: 0 for n in range(len(words))}
     rules = []
-    best_segments = []
 
     for result, best_word_set in results:
         best_rule, best_set, best_segment = result
@@ -296,19 +297,12 @@ def process_results_many(results, words):
 
         # add the best group to the counter
         best_groups[best_word_group] += 1
+        rule = GroupRule(best_rule, best_word_group, best_segment)
+        rules.append(rule)
 
-        rules.append((best_rule, best_word_group))
-        best_segments.append((best_word_group, best_word_group))
+    else_group = min(best_groups, key=lambda item: best_groups[item])
 
-
-
-    everything_else_group = min(best_groups, key=lambda item: best_groups[item])
-
-    pprint(rules)
-    pprint(best_segments)
-    pprint(everything_else_group)
-
-
+    return rules, else_group
 
 
 
@@ -321,8 +315,14 @@ def run(file, ngrams, with_ngrams=False, verbose=False):
     elif len(words) > 2:
 
         results_ltr, results_rtl = run_many(words, ngrams, with_ngrams, verbose=verbose)
-        processed_ltr = process_results_many(results_ltr, words)
-        processed_rtl = process_results_many(results_rtl, words)
+        rules_ltr, else_ltr = process_results_many(results_ltr, words)
+        rules_rtl, else_rtl = process_results_many(results_rtl, words)
+
+        print('rules left-to-right: {}; elsewhere group: {}'.format(
+                    pformat(rules_ltr), else_ltr))
+        print('rules right-to-left: {}; elsewhere group: {}'.format(
+                    pformat(rules_rtl), else_rtl))
+
 
         return 0
 
