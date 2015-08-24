@@ -82,7 +82,7 @@ def get_set_ratio(unique_set, top=3, verbose=False):
     top_vs_all = most_top_frequencies / top_freqs
     return top_vs_all
 
-def pick_best_set(unique_1, unique_2):
+def pick_best_set(unique_1, unique_2, verbose=False):
     """
     get the most 'useful' set based on the set ratio
     :param unique_1:
@@ -92,9 +92,11 @@ def pick_best_set(unique_1, unique_2):
 
     ratio_1, ratio_2 = get_set_ratio(unique_1), get_set_ratio(unique_2)
 
+    if verbose:
+        print('ratios: set 1 — {}, set 2 — {}'.format(ratio_1, ratio_2))
+
 
     best_set = max(ratio_1, ratio_2)
-    # print('----RATIOS----', ratio_1, ratio_2)
 
     if best_set is ratio_1:
         return 0
@@ -118,7 +120,7 @@ def get_segment_scores(unique_set: list, segment_list: list):
 
     for unique_segment, whole_segment in zip(unique_set, segment_list):
         if not unique_segment:
-            yield 0
+            yield -1
             continue
 
         # to each element's count at this segment, we add a 'weight'
@@ -142,42 +144,35 @@ def pick_best_segment(scores):
 
 
 
-def filter_spurious_data(unique_set):
-    threshold = sum(sum(segment_point.values()) for segment_point in unique_set) * 0.01
+def filter_spurious_data(best_segment, unique_set):
+    all_values = chain.from_iterable(segment.values() for segment in unique_set)
+    threshold = math.floor(statistics.median(all_values))
 
-    for segment_point in unique_set:
-        good_segments = {}
-        for segment, count in segment_point.items():
-            if count >= threshold:
-                good_segments[segment] = count
-        yield good_segments
-
+    for element, count in best_segment.items():
+        if count >= threshold:
+            yield element
 
 
 def run_letters(first, second, verbose=False, filter_spurious=True):
     segment_lists = list(find_letters(first)), list(find_letters(second))
-
     unique_segment_lists = get_differences(*segment_lists)
 
-    if verbose:
-        print('***')
-        # pprint(unique_segment_lists, indent=4)
-        print('---')
 
-    best_set_index = pick_best_set(*unique_segment_lists)
+    best_set_index = pick_best_set(*unique_segment_lists, verbose=verbose)
     best_set = unique_segment_lists[best_set_index]
 
     scores = get_segment_scores(best_set, segment_lists[best_set_index])
+
     best_segment = pick_best_segment(scores)
 
     if verbose:
         print('best set', best_set_index)
 
+    differences = best_set[best_segment]
 
     if filter_spurious:
-        best_set = tuple(filter_spurious_data(best_set))
+        differences = filter_spurious_data(differences, best_set)
 
-    differences = best_set[best_segment]
 
     return differences, best_set_index, best_segment
 
