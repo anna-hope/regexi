@@ -4,7 +4,7 @@ from itertools import chain, tee
 from pprint import pprint
 import re
 
-import regexi
+import patternize
 
 def test_regex_matches(regex, words):
     for word in words:
@@ -39,10 +39,10 @@ def test_all(regex, words, must_work=True):
 
 
 def run_test(file, mode):
-    regex = regexi.run(file, False, verbose=True)
+    regex = patternize.run(file, False, verbose=True)
 
     with open(file) as word_list:
-        words = [w.strip() for w in word_list.readlines()]
+        words = re.findall('\w+', word_list.read())
 
 
     print('testing', regex)
