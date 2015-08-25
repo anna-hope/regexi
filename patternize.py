@@ -6,15 +6,15 @@ from enum import Enum
 from functools import partial
 from pprint import pprint, pformat
 import re
+import sys
 
 from greenery import lego
 
 
 class Element:
 
-    def __init__(self, value, frequency=1):
+    def __init__(self, value):
         self.value = value
-        self.frequency = frequency
 
     def __repr__(self):
         return repr(self.value)
@@ -46,7 +46,7 @@ class StringElement(Element, str):
 
 
 class AmbiguousElement(Element):
-    def __init__(self, elements):
+    def __init__(self, *elements):
         temp_elements = []
         for element in elements:
             if isinstance(element, AmbiguousElement):
@@ -56,9 +56,7 @@ class AmbiguousElement(Element):
             else:
                 temp_elements.append(element)
 
-        frequency = max(e.frequency for e in temp_elements)
-
-        super().__init__(frozenset(temp_elements), frequency=frequency)
+        super().__init__(frozenset(temp_elements))
 
     # def __repr__(self):
     #     return '[{}]'.format('/'.join(sorted(self.value)))
@@ -75,10 +73,6 @@ class AmbiguousElement(Element):
                 return False
         else:
             return False
-
-class Mode(Enum):
-    all = 'all'
-    compare_two = 'vs'
 
 
 
@@ -222,10 +216,10 @@ def make_pattern_word(indexes_word, word, verbose=False):
                 pattern[index] = letter
             elif pattern[index] == letter:
                 # this letter occurs twice and has already been assigned
-                pattern[index].frequency += letter.frequency
+                pass
             else:
                 # a letter has already been assigned to that index
-                pattern[index] = AmbiguousElement((pattern[index], letter))
+                pattern[index] = AmbiguousElement(pattern[index], letter)
 
     # collapse the None's (put consecutive None's into tuples)
     # we need this to build the general pattern later
@@ -262,7 +256,7 @@ def get_pattern_pair(word1, word2, verbose=False):
 
     try:
         if len(word1) > len(word2):
-            return find_pattern_pair(word2, word1)
+            return get_pattern_pair(word2, word1)
 
         indexes1, indexes2 = find_intersection_indexes(word1, word2)
 
@@ -308,10 +302,9 @@ def find_common_pattern(pattern1, pattern2, verbose=False):
             # for this, we need to split the existing pattern
             # and insert the tuple of Nones before the last character
 
-            # *start, end = common_pattern
-            # num_remaining_elements = len(longer_pattern) - i1
-            # end_nones = tuple(None for _ in range(num_remaining_elements))
-            # common_pattern = start + [end_nones, end]
+            num_remaining_elements = len(longer_pattern) - i1
+            end_nones = tuple(None for _ in range(num_remaining_elements))
+            common_pattern = common_pattern + [end_nones]
 
             # iteration is over
             break
@@ -331,16 +324,13 @@ def find_common_pattern(pattern1, pattern2, verbose=False):
         else:
             # neither of them are None tuples
             if element1 == element2:
-                element1.frequency += element2.frequency
                 common_pattern.append(element1)
             else:
 
                 # the order cannot be established unambiguously
                 # falling back to the 'ambiguous' pattern
                 # where the same position may be occupied by 2+ characters
-                element1.frequency += 1
-                element2.frequency += 1
-                common_pattern.append(AmbiguousElement((element1, element2)))
+                common_pattern.append(AmbiguousElement(element1, element2))
 
             i1 += 1
             i2 += 1
@@ -371,7 +361,11 @@ def find_pattern(words, allow_unmatched=False, verbose=False):
             print('remaining words:')
             pprint(rest)
 
-        pattern1, pattern2 = get_pattern_pair(one, two, verbose=verbose)
+        try:
+            pattern1, pattern2 = get_pattern_pair(one, two, verbose=verbose)
+        except TypeError:
+            return None
+
         new_pattern = find_common_pattern(pattern1, pattern2, verbose=verbose)
 
         if new_pattern:
@@ -406,34 +400,6 @@ def check_valid(pattern, words, verbose=False):
     else:
         return True
 
-def combine_patterns(patterns):
-    ...
-
-
-def find_pattern_combination(words, verbose=False):
-    initial_patterns = []
-    unmatched_words = words
-
-    while len(unmatched_words) >= 2:
-        initial_pattern, unmatched_words = find_pattern(unmatched_words,
-                                                        allow_unmatched=True,
-                                                        verbose=verbose)
-        if initial_pattern:
-            initial_patterns.append(initial_pattern)
-        else:
-            # no new pattern could be find
-            break
-
-    if unmatched_words:
-        # if there are still unmatched words, add them as 'patterns'
-        initial_patterns += unmatched_words
-
-    # TODO: finish
-
-
-
-
-
 
 def make_regex(pattern):
     if pattern is None:
@@ -458,17 +424,16 @@ def make_regex(pattern):
     return expression
 
 def run_find_all(words, verbose=False):
-    pattern, unmatched_words = find_pattern(words, verbose=verbose)
+    try:
+        pattern, unmatched_words = find_pattern(words, verbose=verbose)
+    except TypeError:
+        sys.exit('no pattern could be found')
+
     regex = make_regex(pattern)
     if not pattern:
         return ''
     else:
         return str(regex)
-
-def run_compare_two(words1, words2, verbose=False):
-    # TODO: words that can be related at all always will be, no matter the existing pattern
-    # TODO: you have to work out a way to combine patterns which are not related on the surface
-    ...
 
 
 def run(file, mode, verbose=False):
@@ -478,7 +443,7 @@ def run(file, mode, verbose=False):
     if not words:
         raise ValueError('the word list is empty')
 
-    words = [[StringElement(char) for char in word] for word in words]
+    words = sorted(word.casefold() for word in words)
 
     result = run_find_all(words, verbose=verbose)
     print(result)
