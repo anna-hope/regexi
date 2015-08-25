@@ -93,7 +93,10 @@ def pick_best_set(unique_1, unique_2, verbose=False):
     ratio_1, ratio_2 = get_set_ratio(unique_1), get_set_ratio(unique_2)
 
     if verbose:
-        print('ratios: set 1 — {}, set 2 — {}'.format(ratio_1, ratio_2))
+        print('ratios: set 1 — {:f}, set 2 — {:f}'.format(ratio_1, ratio_2))
+
+        if abs(math.log2(ratio_1 / ratio_2)) < 0.25:
+            print('both sets potentially have unique elements')
 
 
     best_set = max(ratio_1, ratio_2)
@@ -156,7 +159,6 @@ def filter_spurious_data(best_segment, unique_set):
 def run_letters(first, second, verbose=False, filter_spurious=True):
     segment_lists = list(find_letters(first)), list(find_letters(second))
     unique_segment_lists = get_differences(*segment_lists)
-
 
     best_set_index = pick_best_set(*unique_segment_lists, verbose=verbose)
     best_set = unique_segment_lists[best_set_index]
@@ -386,10 +388,11 @@ def run(file, ngrams, with_ngrams=False, verbose=False):
 
 if __name__ == '__main__':
     arg_parser = ArgumentParser()
-    arg_parser.add_argument('words')
-    arg_parser.add_argument('-ng', '--ngrams', type=int, default=1, required=False)
+    arg_parser.add_argument('words', help='the JSON file with word groups')
+    arg_parser.add_argument('-ng', '--ngrams', type=int, default=1, required=False,
+                            help='run with ngrams of length n')
     arg_parser.add_argument('--with-ngrams', action='store_true',
-                            help='')
+                            help='run the script with up to n n-grams')
     arg_parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     args = arg_parser.parse_args()
     run(args.words, args.ngrams, args.with_ngrams, verbose=args.verbose)
