@@ -1,3 +1,7 @@
 *.pyc
 .idea
 
+
+data/finnish_large.json
+
+random_finnish.json
