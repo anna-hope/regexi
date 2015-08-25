@@ -1,0 +1,21 @@
+[
+  ["curl",    "deliver", "gear",   "jerk",  "puff",
+  "recover", "risk",    "shadow", "storm", "string",
+  "swamp",   "weight",  "word", "bellow",  "center", "flock",   "flood", "group",
+"harbor",  "panel",  "pioneer", "pool",  "scout",
+"sponsor"],
+  ["abide",      "battle",     "conserve",   "course",     "decompose",
+"dramatize",  "ensure",     "enterprise", "envelope",   "fiddle",
+"forage",     "gorge",      "headline",   "hemorrhage", "income",
+"masquerade", "microphone", "overcome",   "paraphrase", "eramble",
+"relive",     "rewrite",    "rhyme",      "service",    "skate",
+"staple",     "stride",     "strike",     "warehouse",  "wrestle",
+  "analyze", "challenge", "commute",   "dazzle",  "divide",
+"frame",   "glaze",     "improvise", "lecture", "puzzle",
+"reduce",  "revolve",   "tumble"],
+  ["authority", "community", "company",      "deputy",     "dictionary",
+"enemy",     "gallery",   "municipality", "university"],
+  ["clap",    "crop", "drop",  "flip", "handicap",
+    "overlap", "slap", "strap", "chip", "clip", "skip", "slip", "stop",
+    "wrap"]
+]
