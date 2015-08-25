@@ -46,7 +46,7 @@ For example, run
 
     ./patternize.py data/arabic_ktb.txt
    
-to test the script as it identifies the pattern '.*k.*t.*b.*' for a derivational paradigm of the Arabic root k-t-b.
+to test the script as it identifies the pattern ````.*k.*t.*b.*```` for a derivational paradigm of the Arabic root k-t-b.
 
 The script **patternize.py** was created as more of a conceptual exercise and at the moment likely offers less opportunities to be used in practice.
 However, this project is still a work in progress, and the script's functionality may be expanded in the future (this also goes for **natclesses.py**).
