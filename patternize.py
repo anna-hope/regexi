@@ -64,6 +64,9 @@ class AmbiguousElement(Element):
     def __str__(self):
         return repr(self)
 
+    def __hash__(self):
+        return hash(self.value)
+
     def __eq__(self, other):
         for character in self:
             try:
@@ -363,10 +366,9 @@ def find_pattern(words, allow_unmatched=False, verbose=False):
 
         try:
             pattern1, pattern2 = get_pattern_pair(one, two, verbose=verbose)
+            new_pattern = find_common_pattern(pattern1, pattern2, verbose=verbose)
         except TypeError:
-            return None
-
-        new_pattern = find_common_pattern(pattern1, pattern2, verbose=verbose)
+            new_pattern = None
 
         if new_pattern:
             # only assign the pattern if one could be found
@@ -393,12 +395,10 @@ def check_valid(pattern, words, verbose=False):
     """
 
     for word in words:
-        if not find_intersection(pattern, word):
-            if verbose:
-                print('failed to find an intersection for {} and {}'.format(pattern, word))
-            return False
-    else:
-        return True
+        if find_intersection(pattern, word):
+            yield word, True
+        else:
+            yield word, False
 
 
 def make_regex(pattern):
