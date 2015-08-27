@@ -12,6 +12,11 @@ import statistics
 
 GroupRule = namedtuple('GroupRule', ('rule', 'group', 'segment'))
 
+class NoUniqueElementsError(Exception):
+    def __init__(self, *args, bad_sets=None):
+        self.bad_sets = bad_sets
+        super().__init__(*args)
+
 def ngramicise(word_list, n=2):
     for word in word_list:
         current = 0
@@ -90,7 +95,12 @@ def pick_best_set(unique_1, unique_2, verbose=False):
     :return:
     """
 
-    ratio_1, ratio_2 = get_set_ratio(unique_1), get_set_ratio(unique_2)
+    try:
+        ratio_1, ratio_2 = get_set_ratio(unique_1), get_set_ratio(unique_2)
+    except ZeroDivisionError:
+        # one of the sets is empty (i.e. has no unique elements)
+        raise NoUniqueElementsError
+
 
     if verbose:
         print('ratios: set 1 — {:f}, set 2 — {:f}'.format(ratio_1, ratio_2))
@@ -155,12 +165,32 @@ def filter_spurious_data(best_segment, unique_set):
         if count >= threshold:
             yield element
 
+def has_unique_elements(segments):
+    """
+    Checks whether a set of segments has unique elements
+    :param segments:
+    :return:
+    """
+    total_length = sum(len(segment.values()) for segment in segments)
+    return total_length > 0
+
 
 def run_letters(first, second, verbose=False, filter_spurious=True):
     segment_lists = list(find_letters(first)), list(find_letters(second))
     unique_segment_lists = get_differences(*segment_lists)
 
-    best_set_index = pick_best_set(*unique_segment_lists, verbose=verbose)
+    try:
+        best_set_index = pick_best_set(*unique_segment_lists, verbose=verbose)
+    except NoUniqueElementsError:
+        # one or both of the sets have no unique elements
+        # find out which one and reraise with their indexes
+        bad_sets = []
+        for n, unique_segments in enumerate(unique_segment_lists):
+            if not has_unique_elements(unique_segments):
+                bad_sets.append(n)
+        raise NoUniqueElementsError(bad_sets=bad_sets)
+
+
     best_set = unique_segment_lists[best_set_index]
 
     scores = get_segment_scores(best_set, segment_lists[best_set_index])
@@ -269,8 +299,11 @@ def run_many(words, ngrams, with_ngrams=False, verbose=False):
             print('run', n + 1)
             pprint(word_groups)
 
-        result_ltr = run_words(word_groups, ngrams=ngrams, verbose=verbose)
-        result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=False)
+        try:
+            result_ltr = run_words(word_groups, ngrams=ngrams, verbose=verbose)
+            result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=False)
+        except NoUniqueElementsError:
+            continue
 
         # we need this to pick the 'special sets' and the 'everything else' set
         best_words_ltr = word_groups[result_ltr[1]]
@@ -349,7 +382,7 @@ def make_regex_rules(processed_ltr, procesed_rtl, words):
 
 
 
-def run(words, ngrams, with_ngrams=False, verbose=False):
+def run(words, ngrams=0, with_ngrams=False, verbose=False):
 
     # get the length ranges for words
     # this is needed to know if the rules identified above
