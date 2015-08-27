@@ -349,9 +349,7 @@ def make_regex_rules(processed_ltr, procesed_rtl, words):
 
 
 
-def run(file, ngrams, with_ngrams=False, verbose=False):
-    with open(file) as words_file:
-        words = json.load(words_file)
+def run(words, ngrams, with_ngrams=False, verbose=False):
 
     # get the length ranges for words
     # this is needed to know if the rules identified above
@@ -395,4 +393,8 @@ if __name__ == '__main__':
                             help='run the script with up to n n-grams')
     arg_parser.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
     args = arg_parser.parse_args()
-    run(args.words, args.ngrams, args.with_ngrams, verbose=args.verbose)
+
+    with open(args.words) as words_file:
+        words = json.load(words_file)
+
+    run(words, args.ngrams, args.with_ngrams, verbose=args.verbose)
