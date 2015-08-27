@@ -354,7 +354,7 @@ def make_regex_rule(rule_ltr, rule_rtl, min_length, max_length):
 
     # check if it occurs at beginnings of words
     if rule_ltr.segment == 0 and min_length <= rule_rtl.segment + 1 <= max_length:
-        regex.append('^.+')
+        regex = ['^'] + regex + ['.+']
 
     # check if it occurs at ends of words
     elif rule_rtl.segment == 0 and min_length <= rule_ltr.segment + 1 <= max_length:
