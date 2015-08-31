@@ -230,24 +230,18 @@ def make_pattern_word(indexes_word, word, verbose=False):
     # e.g. 'tr' in 'string' vs. 'sing' should yield ['s', (None, None), 'i', 'n', 'g']
 
     optimised_pattern = []
-    nones = []
-    for n, element in enumerate(pattern):
-
+    previous_is_none = False
+    for element in pattern:
         if element:
-            if nones:
-                # append the list of None's if there is anything in it
-                optimised_pattern.append(tuple(nones))
-                nones.clear()
-
             optimised_pattern.append(element)
+            previous_is_none = False
         else:
-            nones.append(None)
-            if n + 1 == len(pattern):
-                # this pattern ends in None
-                optimised_pattern.append(tuple(nones))
+            if not previous_is_none:
+                optimised_pattern.append(None)
+                previous_is_none = True
+            else:
+                continue
 
-    if verbose:
-        print(word, pformat(optimised_pattern))
 
     return optimised_pattern
 
@@ -306,49 +300,44 @@ def find_common_pattern(pattern1, pattern2, verbose=False):
             # and insert the tuple of Nones before the last character
 
             num_remaining_elements = len(longer_pattern) - i1
-            end_nones = tuple(None for _ in range(num_remaining_elements))
-            common_pattern = common_pattern + [end_nones]
-
+            if num_remaining_elements > 0:
+                common_pattern.append(None)
             # iteration is over
             break
 
         # both elements are None tuples
-        if is_none_tuple(element1) and is_none_tuple(element2):
-            bigger_none = max(element1, element2, key=len)
-            common_pattern.append(bigger_none)
+        if element1 is None and element2 is None:
+            # bigger_none = max(element1, element2, key=len)
+            common_pattern.append(None)
             i1 += 1
             i2 += 1
-        elif is_none_tuple(element1):
-            common_pattern.append(element1)
+        elif element1 is None:
+            common_pattern.append(None)
             i1 += 1
-        elif is_none_tuple(element2):
-            common_pattern.append(element2)
+        elif element2 is None:
+            common_pattern.append(None)
             i2 += 1
         else:
             # neither of them are None tuples
             if element1 == element2:
                 common_pattern.append(element1)
             else:
-
+                common_pattern.append(element1)
+                # common_pattern.append(element2)
+                # if element2 not in common_pattern:
+                #     common_pattern.append(element2)
                 # the order cannot be established unambiguously
                 # falling back to the 'ambiguous' pattern
                 # where the same position may be occupied by 2+ characters
-                common_pattern.append(AmbiguousElement(element1, element2))
+                #common_pattern.append(AmbiguousElement(element1, element2))
 
             i1 += 1
             i2 += 1
 
-    unpacked_pattern = []
-    for element in common_pattern:
-        if is_none_tuple(element):
-            unpacked_pattern += list(element)
-        else:
-            unpacked_pattern.append(element)
-
     if verbose:
-        print('combined pattern', unpacked_pattern)
+        print('combined pattern', list(common_pattern))
 
-    return unpacked_pattern
+    return common_pattern
 
 
 def find_pattern(words, allow_unmatched=False, verbose=False):
@@ -405,21 +394,25 @@ def make_regex(pattern):
     if pattern is None:
         return None
 
-    expression = ''
-    for element in pattern:
+    expression = ['^']
+    for n, element in enumerate(pattern):
         if element:
             if len(element) > 1:
-                expression += '[{}]'.format(''.join(element))
+                expression.append('[{}]'.format(''.join(element)))
             else:
-                expression += element
+                expression.append(element)
         else:
             # hack with completely optional None characters
             # (specifying length may yield an incorrect pattern)
-            expression += '.*'
+            expression.append('.*')
+
+    no_end_chars = {'.*', '$'}
+    if expression[-1] not in no_end_chars:
+        expression.append('$')
 
     # optimise the expression with lego
 
-    expression = lego.parse(expression)
+    expression = lego.parse(''.join(expression))
 
     return expression
 
