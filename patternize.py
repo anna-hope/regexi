@@ -340,7 +340,7 @@ def find_common_pattern(pattern1, pattern2, verbose=False):
     return common_pattern
 
 
-def find_pattern(words, allow_unmatched=False, verbose=False):
+def find_pattern(words, allow_unmatched=False, return_something=False, verbose=False):
 
     unmatched_words = []
     combined_pattern = None
@@ -394,7 +394,7 @@ def make_regex(pattern):
     if pattern is None:
         return None
 
-    expression = ['^']
+    expression = []
     for n, element in enumerate(pattern):
         if element:
             if len(element) > 1:
@@ -406,9 +406,9 @@ def make_regex(pattern):
             # (specifying length may yield an incorrect pattern)
             expression.append('.*')
 
-    no_end_chars = {'.*', '$'}
-    if expression[-1] not in no_end_chars:
-        expression.append('$')
+    # no_end_chars = {'$'}
+    # if expression[-1] not in no_end_chars:
+    #     expression.append('$')
 
     # optimise the expression with lego
 
