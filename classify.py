@@ -239,8 +239,6 @@ def collapse_subsets(patterns: dict):
                     #     break
                     #
                     # # experiment
-                    if len(matches) / len(other_matches) > 0.7:
-                        continue
 
                     if matches.issubset(other_matches) and superpattern:
 
