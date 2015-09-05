@@ -5,9 +5,11 @@ from collections import defaultdict, Counter
 import functools
 import itertools
 import math
+from pathlib import Path
 import pprint
 import re
 import statistics
+import sys
 
 import Levenshtein as lev
 
@@ -148,8 +150,8 @@ def group_by_distance(words, groups=None):
             distance_ratio = functools.partial(get_distance_ratios, word)
 
             try:
-                    closest_group, closest_index = max(other_groups,
-                                                       key=lambda item: statistics.mean(distance_ratio(item[0])))
+                closest_key = lambda item: statistics.mean(distance_ratio(item[0]))
+                closest_group, closest_index = max(other_groups, key=closest_key)
             except ValueError:
                 continue
 
@@ -369,9 +371,12 @@ if __name__ == '__main__':
     arg_parser.add_argument('words', help='the file with words')
     arg_parser.add_argument('--casefold', action='store_true',
                             help='ignore case in the input data')
+    arg_parser.add_argument('--to-file', action='store_true',
+                            help='final output will be redirected to a file')
     args = arg_parser.parse_args()
+    words_path = Path(args.words)
 
-    with open(args.words) as file:
+    with words_path.open() as file:
         the_words = re.findall("\w+'\w+|\w+", file.read())
 
     if args.casefold:
@@ -379,5 +384,21 @@ if __name__ == '__main__':
 
     the_words = Counter(the_words)
     result = run(the_words)
-    print('found {} pattern groups'.format(len(result)))
-    pprint.pprint(result)
+
+    if args.to_file:
+        output_dir = Path('results')
+        output_dir.mkdir(parents=True)
+
+        out_path = Path(output_dir, words_path.stem + '_patterns.txt')
+        with out_path.open('w') as out_file:
+            print('found {} patterns'.format(len(result)), file=out_file)
+            pprint.pprint(result, stream=out_file)
+
+
+        print('output written to {}'.format(out_path))
+    else:
+        print('found {} patterns'.format(len(result)))
+        pprint.pprint(result)
+
+
+
