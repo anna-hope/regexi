@@ -91,43 +91,6 @@ class Pattern:
             return None
 
 
-
-def get_substrings(string):
-    """
-    This function is not used by the current version of the program and will be removed in the future.
-    :param string:
-    :return:
-    """
-    length = len(string)
-
-    if length == 1:
-        yield string
-        return
-
-    # the 'starting position' loop
-    for n in range(length):
-
-        # the 'skip step' loop
-
-        for step in range(1, length):
-
-            # make substrings
-            # starting at position 'n' and going up to the length of the string
-            for index in range(n, length, step):
-                # go from the next character
-                index += 1
-
-                # don't emit duplicates
-                # (if the step is greater than one
-                # and than the length of the would be substring,
-                # it's a duplicate
-                if step > 1 and index - n < step:
-                    continue
-                else:
-
-                    chars = string[n:index:step]
-                    yield chars
-
 def get_distance_ratios(word, group, pick_last=5):
     for a_word in group[-pick_last:]:
         ratio = lev.ratio(word, a_word)
