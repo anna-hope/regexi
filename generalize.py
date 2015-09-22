@@ -301,16 +301,18 @@ def run_many(words, ngrams, with_ngrams=False, verbose=False):
 
         try:
             result_ltr = run_words(word_groups, ngrams=ngrams, verbose=verbose)
-            result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=False)
+            # we need this to pick the 'special sets' and the 'everything else' set
+            best_words_ltr = word_groups[result_ltr[1]]
+            results_ltr.append((result_ltr, best_words_ltr))
         except NoUniqueElementsError:
-            continue
+            results_ltr.append((None, None))
 
-        # we need this to pick the 'special sets' and the 'everything else' set
-        best_words_ltr = word_groups[result_ltr[1]]
-        best_words_rtl = word_groups[result_rtl[1]]
-
-        results_ltr.append((result_ltr, best_words_ltr))
-        results_rtl.append((result_rtl, best_words_rtl))
+        try:
+            result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=verbose)
+            best_words_rtl = word_groups[result_rtl[1]]
+            results_rtl.append((result_rtl, best_words_rtl))
+        except NoUniqueElementsError:
+            results_rtl.append((None, None))
 
     return results_ltr, results_rtl
 
@@ -328,6 +330,11 @@ def process_results_many(results, words):
 
     def get_rules():
         for result, best_word_set in results:
+            # there may not have been a result for this run
+            if not result:
+                yield GroupRule((), set(), -1)
+                continue
+
             best_rule, best_set, best_segment = result
             best_word_group = pick_best_word_group(best_word_set, words)
 
@@ -353,16 +360,21 @@ def make_regex_rule(rule_ltr, rule_rtl, min_length, max_length):
         regex.append(combined_rule.pop())
 
     # check if it occurs at beginnings of words
-    if rule_ltr.segment == 0 and min_length <= rule_rtl.segment + 1 <= max_length:
+    beginning_ltr = rule_ltr.segment == 0
+    beginning_rtl = (min_length <= rule_rtl.segment + 1 <= max_length) or rule_rtl.segment == -1
+
+    if beginning_ltr and beginning_rtl:
         regex = ['^'] + regex + ['.+']
-
-    # check if it occurs at ends of words
-    elif rule_rtl.segment == 0 and min_length <= rule_ltr.segment + 1 <= max_length:
-        regex = ['.+'] + regex + ['$']
-
-    # it occurs in the middle
     else:
-        regex = ['.*'] + regex + ['.*']
+        # check if it occurs at ends of words
+        ending_rtl = rule_rtl.segment == 0
+        ending_ltr = (min_length <= rule_ltr.segment + 1 <= max_length) or rule_ltr.segment == -1
+
+        if ending_rtl and ending_ltr:
+            regex = ['.+'] + regex + ['$']
+        # it occurs in the middle
+        else:
+            regex = ['.*'] + regex + ['.*']
 
     regex_string = ''.join(regex)
 
@@ -376,7 +388,7 @@ def make_regex_rules(processed_ltr, procesed_rtl, words):
                                   .format(else_ltr, else_rtl))
 
     regex_rules = (make_regex_rule_p(rule_ltr, rule_rtl) for rule_ltr, rule_rtl
-                    in zip(rules_ltr, rules_rtl))
+                    in zip(rules_ltr, rules_rtl) if rule_ltr.rule or rule_rtl.rule)
     return regex_rules
 
 
@@ -413,7 +425,7 @@ def run(words, ngrams=0, with_ngrams=False, verbose=False):
     else:
         raise ValueError('the file must have 2 or more lists of words')
 
-    print('regex:', regex_rules)
+    print('regex:', pformat(regex_rules))
 
 
 
