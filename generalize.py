@@ -8,6 +8,7 @@ import json
 import math
 from operator import add
 from pprint import pprint, pformat
+import random
 import statistics
 
 GroupRule = namedtuple('GroupRule', ('rule', 'group', 'segment'))
@@ -96,7 +97,8 @@ def pick_best_set(unique_1, unique_2, verbose=False):
     """
 
     try:
-        ratio_1, ratio_2 = get_set_ratio(unique_1), get_set_ratio(unique_2)
+        ratios = get_set_ratio(unique_1), get_set_ratio(unique_2)
+        ratio_1, ratio_2 = ratios
     except ZeroDivisionError:
         # one of the sets is empty (i.e. has no unique elements)
         raise NoUniqueElementsError
@@ -105,16 +107,17 @@ def pick_best_set(unique_1, unique_2, verbose=False):
     if verbose:
         print('ratios: set 1 — {:f}, set 2 — {:f}'.format(ratio_1, ratio_2))
 
-        if abs(math.log2(ratio_1 / ratio_2)) < 0.25:
-            print('both sets potentially have unique elements')
 
+    if abs(math.log2(ratio_1 / ratio_2)) < 0.25:
+        both_unique = True
+    else:
+        both_unique = False
 
     best_set = max(ratio_1, ratio_2)
 
-    if best_set is ratio_1:
-        return 0
-    else:
-        return 1
+    # return the index of the best set and whether both sets potentially have a unique rules
+    best_set_index = ratios.index(best_set)
+    return best_set_index, both_unique
 
 def get_segment_scores(unique_set: list, segment_list: list):
     """
@@ -180,7 +183,7 @@ def run_letters(first, second, verbose=False, filter_spurious=True):
     unique_segment_lists = get_differences(*segment_lists)
 
     try:
-        best_set_index = pick_best_set(*unique_segment_lists, verbose=verbose)
+        best_set_index, both_unique = pick_best_set(*unique_segment_lists, verbose=verbose)
     except NoUniqueElementsError:
         # one or both of the sets have no unique elements
         # find out which one and reraise with their indexes
@@ -190,11 +193,8 @@ def run_letters(first, second, verbose=False, filter_spurious=True):
                 bad_sets.append(n)
         raise NoUniqueElementsError(bad_sets=bad_sets)
 
-
     best_set = unique_segment_lists[best_set_index]
-
     scores = get_segment_scores(best_set, segment_lists[best_set_index])
-
     best_segment = pick_best_segment(scores)
 
     if verbose:
@@ -206,7 +206,7 @@ def run_letters(first, second, verbose=False, filter_spurious=True):
         differences = filter_spurious_data(differences, best_set)
 
 
-    return differences, best_set_index, best_segment
+    return differences, best_set_index, best_segment, both_unique
 
 
 def run_words(words, ngrams=0, rtl=False, verbose=False):
@@ -230,7 +230,8 @@ def run_words(words, ngrams=0, rtl=False, verbose=False):
         first = ngramicise(first, ngrams)
         second = ngramicise(second, ngrams)
 
-    best_segment_letters, best_set, best_segment = run_letters(first, second, verbose=verbose)
+    best_segment_letters, best_set, best_segment, both_unique = run_letters(first, second,
+                                                                            verbose=verbose)
     best_segment_letters = tuple(best_segment_letters)
 
     if verbose:
@@ -244,7 +245,7 @@ def run_words(words, ngrams=0, rtl=False, verbose=False):
     if verbose:
         print(best_segment_letters)
 
-    return best_segment_letters, best_set, best_segment
+    return best_segment_letters, best_set, best_segment, both_unique
 
 
 def run_multi_ngrams(words, ngrams, verbose=False):
@@ -264,34 +265,51 @@ def run_two(words, ngrams, with_ngrams=False, verbose=False):
         # pprint(list(result))
 
          return NotImplemented
-
-
     else:
-
         if verbose:
             print('running left-to-right')
 
-        result_ltr = run_words(words, ngrams, verbose=verbose)
+        *result_ltr, both_unique_ltr = run_words(words, ngrams, verbose=verbose)
 
         if verbose:
             print('running right-to-left')
 
-        result_rtl = run_words(words, ngrams, rtl=True, verbose=verbose)
-
+        *result_rtl, both_unique_rtl = run_words(words, ngrams, rtl=True, verbose=verbose)
 
         rules_ltr = GroupRule(*result_ltr)
         rules_rtl = GroupRule(*result_rtl)
 
-        return rules_ltr, rules_rtl
+        both_unique = both_unique_ltr or both_unique_rtl
+        if verbose and both_unique:
+            print('both sets potentially have unique elements')
 
+        return rules_ltr, rules_rtl, both_unique
 
 
 def run_many(words, ngrams, with_ngrams=False, verbose=False):
 
     results_ltr, results_rtl = [], []
 
+    # choose whether to make a permanent control group to compare others to
+    # a permanent control group is created by picking a random word from every group
+    # thus, a control group is only used if the number of groups is greater
+    # than the average length of every group
+    # (this is to make sure that the control is big enough to be tested against)
+
+    avg_group_len = math.floor(statistics.mean(len(group) for group in words))
+    num_groups = len(words)
+
+    if num_groups >= avg_group_len:
+        control_group = [random.choice(group) for group in words]
+    else:
+       control_group = None
+
+
     for n, group in enumerate(words):
-        other_group = tuple(chain.from_iterable(g for g in words if g != group))
+        if control_group:
+            other_group = control_group
+        else:
+            other_group = tuple(chain.from_iterable(g for g in words if g != group))
         word_groups = (tuple(group), other_group)
 
         if verbose:
@@ -300,7 +318,8 @@ def run_many(words, ngrams, with_ngrams=False, verbose=False):
             pprint(word_groups)
 
         try:
-            result_ltr = run_words(word_groups, ngrams=ngrams, verbose=verbose)
+            *result_ltr, _ = run_words(word_groups, ngrams=ngrams,
+                                                     verbose=verbose)
             # we need this to pick the 'special sets' and the 'everything else' set
             best_words_ltr = word_groups[result_ltr[1]]
             results_ltr.append((result_ltr, best_words_ltr))
@@ -308,7 +327,8 @@ def run_many(words, ngrams, with_ngrams=False, verbose=False):
             results_ltr.append((None, None))
 
         try:
-            result_rtl = run_words(word_groups, ngrams=ngrams, rtl=True, verbose=verbose)
+            *result_rtl, _ = run_words(word_groups, ngrams=ngrams, rtl=True,
+                                                     verbose=verbose)
             best_words_rtl = word_groups[result_rtl[1]]
             results_rtl.append((result_rtl, best_words_rtl))
         except NoUniqueElementsError:
@@ -357,7 +377,11 @@ def make_regex_rule(rule_ltr, rule_rtl, min_length, max_length):
     if len(combined_rule) > 1:
         regex.append('[{}]'.format(''.join(combined_rule)))
     else:
-        regex.append(combined_rule.pop())
+        try:
+            regex.append(combined_rule.pop())
+        except KeyError:
+            return None
+
 
     # check if it occurs at beginnings of words
     beginning_ltr = rule_ltr.segment == 0
@@ -407,9 +431,8 @@ def run(words, ngrams=0, with_ngrams=False, verbose=False):
                                 min_length=min_length, max_length=max_length)
 
     if len(words) == 2:
-        result = run_two(words, ngrams, with_ngrams, verbose)
-
-        regex_rules = make_regex_rule_p(*result)
+        ltr, rtl, both_unique = run_two(words, ngrams, with_ngrams, verbose)
+        regex_rules = make_regex_rule_p(ltr, rtl)
 
     elif len(words) > 2:
 
@@ -421,11 +444,12 @@ def run(words, ngrams=0, with_ngrams=False, verbose=False):
         else_group = rules_ltr[1]
         print("the 'else' group:", else_group)
 
-
     else:
-        raise ValueError('the file must have 2 or more lists of words')
+        raise ValueError('the data must have at least 2 lists of words')
 
-    print('regex:', pformat(regex_rules))
+    return regex_rules
+
+
 
 
 
@@ -442,4 +466,5 @@ if __name__ == '__main__':
     with open(args.words) as words_file:
         words = json.load(words_file)
 
-    run(words, args.ngrams, args.with_ngrams, verbose=args.verbose)
+    regex_rules = run(words, args.ngrams, args.with_ngrams, verbose=args.verbose)
+    print('regex:', pformat(regex_rules))
