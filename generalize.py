@@ -18,6 +18,9 @@ class NoUniqueElementsError(Exception):
         self.bad_sets = bad_sets
         super().__init__(*args)
 
+class ConflictingGroupsError(Exception):
+    pass
+
 def ngramicise(word_list, n=2):
     for word in word_list:
         current = 0
@@ -279,6 +282,10 @@ def run_two(words, ngrams, with_ngrams=False, verbose=False):
         rules_ltr = GroupRule(*result_ltr)
         rules_rtl = GroupRule(*result_rtl)
 
+        # check that both runs found the same best sets
+        if rules_ltr.group != rules_rtl.group:
+            raise ConflictingGroupsError
+
         both_unique = both_unique_ltr or both_unique_rtl
         if verbose and both_unique:
             print('both sets potentially have unique elements')
@@ -430,9 +437,17 @@ def run(words, ngrams=0, with_ngrams=False, verbose=False):
     make_regex_rule_p = partial(make_regex_rule,
                                 min_length=min_length, max_length=max_length)
 
+    # pre-initialise various variable to None
+    # they will be redefined if applicable further in the code
+    both_unique = None
+    best_set, else_group = None, None
+
     if len(words) == 2:
         ltr, rtl, both_unique = run_two(words, ngrams, with_ngrams, verbose)
         regex_rules = make_regex_rule_p(ltr, rtl)
+
+        # both best groups should be the same, so we'll just take the one from ltr
+        best_set = ltr.group
 
     elif len(words) > 2:
 
@@ -442,12 +457,14 @@ def run(words, ngrams=0, with_ngrams=False, verbose=False):
 
         regex_rules = tuple(make_regex_rules(rules_ltr, rules_rtl, words))
         else_group = rules_ltr[1]
+
+
         print("the 'else' group:", else_group)
 
     else:
         raise ValueError('the data must have at least 2 lists of words')
 
-    return regex_rules
+    return regex_rules, both_unique, best_set, else_group
 
 
 
