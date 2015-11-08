@@ -1,19 +1,19 @@
 __author__ = 'Anton Osten'
 
-from argparse import ArgumentParser
-from collections import defaultdict, Counter
 import functools
 import itertools
-import math
-from pathlib import Path
 import pprint
 import re
 import statistics
-import sys
+from argparse import ArgumentParser
+from collections import defaultdict, Counter
+from pathlib import Path
 
 import Levenshtein as lev
+import math
 
-import patternize
+from regexi import patternize
+
 
 class Pattern:
     def __init__(self, pattern):
