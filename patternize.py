@@ -2,15 +2,12 @@ __author__ = 'anton'
 
 from argparse import ArgumentParser
 from collections import defaultdict
-from enum import Enum
 from functools import partial
 from pprint import pprint, pformat
 import re
 import sys
 
 from greenery import lego
-
-
 class Element:
 
     def __init__(self, value):
@@ -41,8 +38,6 @@ class Element:
     def intersection(self, other) -> set:
         return self.value.intersection(other.value)
 
-class StringElement(Element, str):
-    pass
 
 
 class AmbiguousElement(Element):
