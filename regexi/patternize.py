@@ -1,15 +1,23 @@
-__author__ = 'anton'
+"""
+(c) 2015-2016 Anton Melnikov
+"""
 
+import re
+import warnings
 from argparse import ArgumentParser
 from collections import defaultdict
 from functools import partial
-from pprint import pprint, pformat
-import re
-import sys
+from pprint import pprint
 
-from greenery import lego
+try:
+    from greenery import lego
+except ImportError:
+    warnings.warn('Greenery.Lego is not available, '
+                  + 'patterns will not be formatted as regex.')
+    lego = None
+
+
 class Element:
-
     def __init__(self, value):
         self.value = value
 
@@ -37,7 +45,6 @@ class Element:
 
     def intersection(self, other) -> set:
         return self.value.intersection(other.value)
-
 
 
 class AmbiguousElement(Element):
@@ -73,8 +80,6 @@ class AmbiguousElement(Element):
             return False
 
 
-
-
 def is_none_tuple(element) -> bool:
     try:
         return None in element
@@ -100,7 +105,6 @@ def find_intersection(word1, word2):
                     # i.e. for [an] and [mn] it would be 'n'
 
                     for e in ambiguous_intersection:
-
                         intersection.add(e)
 
             elif isinstance(element, AmbiguousElement):
@@ -130,6 +134,7 @@ def get_common_letters(word, intersection):
 
     return intersection_word
 
+
 def normalise_index(index_x, index_y, length_x, length_y):
     normalised = abs(index_x / length_x - index_y / length_y)
     return normalised
@@ -150,7 +155,6 @@ def find_closest_indexes(indexes1, indexes2, length1, length2):
         closest_with_lengths = partial(normalise_index, length_x=length2, length_y=length1)
 
         for index1, index2 in zip(indexes1, indexes2):
-
             # index1 is from the shorter string
             # so we multiply them by the offset
             # (see below for explanation)
@@ -164,7 +168,6 @@ def find_closest_indexes(indexes1, indexes2, length1, length2):
         closest_with_lengths = partial(normalise_index, length_x=length1, length_y=length2)
 
         for index1, index2 in zip(indexes1, indexes2):
-
             # n is the index from the shorter string
             # so that's the index we multiply by the offset
             # (ibid.)
@@ -173,7 +176,6 @@ def find_closest_indexes(indexes1, indexes2, length1, length2):
             closest_other = min(indexes1, key=closest)
             close_indexes_1.append(closest_other)
             close_indexes_2.append(index2)
-
 
     return close_indexes_1, close_indexes_2
 
@@ -237,7 +239,6 @@ def make_pattern_word(indexes_word, word, verbose=False):
             else:
                 continue
 
-
     return optimised_pattern
 
 
@@ -259,7 +260,6 @@ def get_pattern_pair(word1, word2, verbose=False):
     except TypeError:
         return None
 
-
     pattern1, pattern2 = (make_pattern_word(indexes1, word1, verbose=verbose),
                           make_pattern_word(indexes2, word2, verbose=verbose))
 
@@ -267,7 +267,6 @@ def get_pattern_pair(word1, word2, verbose=False):
 
 
 def find_common_pattern(pattern1, pattern2, verbose=False):
-
     shorter_pattern, longer_pattern = sorted((pattern1, pattern2), key=len)
 
     # iterate over both patterns
@@ -324,7 +323,7 @@ def find_common_pattern(pattern1, pattern2, verbose=False):
                 # the order cannot be established unambiguously
                 # falling back to the 'ambiguous' pattern
                 # where the same position may be occupied by 2+ characters
-                #common_pattern.append(AmbiguousElement(element1, element2))
+                # common_pattern.append(AmbiguousElement(element1, element2))
 
             i1 += 1
             i2 += 1
@@ -335,8 +334,7 @@ def find_common_pattern(pattern1, pattern2, verbose=False):
     return common_pattern
 
 
-def find_pattern(words, allow_unmatched=False, return_something=False, verbose=False):
-
+def find_pattern(words, allow_unmatched=False, verbose=False):
     unmatched_words = []
     combined_pattern = None
     rest = words
@@ -366,6 +364,7 @@ def find_pattern(words, allow_unmatched=False, return_something=False, verbose=F
         words = [combined_pattern] + rest
 
     return combined_pattern, unmatched_words
+
 
 def check_valid(pattern, words, verbose=False):
     """
@@ -411,17 +410,25 @@ def make_regex(pattern):
 
     return expression
 
-def run_find_all(words, verbose=False):
+
+def run_find_all(words, regexify=True, verbose=False):
     try:
         pattern, unmatched_words = find_pattern(words, verbose=verbose)
     except TypeError:
-        sys.exit('no pattern could be found')
+        pattern = None
 
-    regex = make_regex(pattern)
     if not pattern:
         return ''
+
+    if lego and regexify:
+        regex = make_regex(pattern)
     else:
-        return str(regex)
+        if regexify:
+            warnings.warn('Cannot make regex without lego.')
+
+        regex = pattern
+
+    return str(regex)
 
 
 def run(file, mode, verbose=False):
@@ -436,10 +443,7 @@ def run(file, mode, verbose=False):
     result = run_find_all(words, verbose=verbose)
     print(result)
 
-
     return result
-
-
 
 
 if __name__ == '__main__':
