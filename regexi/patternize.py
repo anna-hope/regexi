@@ -406,7 +406,8 @@ def make_regex(pattern):
 
     # optimise the expression with lego
 
-    expression = lego.parse(''.join(expression))
+    if lego is not None:
+        expression = lego.parse(''.join(expression))
 
     return expression
 
