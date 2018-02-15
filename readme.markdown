@@ -1,6 +1,6 @@
 This repository hosts a collection of scripts which attempt to find common patterns in groups of words.
 
-##generalize.py
+## generalize.py
 The script generalize.py takes a JSON-file with an array of two or more lists of words, e.g.
 
     [["abc", "bac"], ["def", "fed"]] 
@@ -39,7 +39,7 @@ or
 *Despite their name, these elements don't have to be completely unique, 
 but they must appear in one group so frequently that their occurrence in the other groups was not statistically significant.
 
-##patternize.py
+## patternize.py
 
 This script takes a text file with a list of words and tries to find the most explicit regular expression which connects those words (if such a pattern exists). 
 For example, if given the words 'string sing bring ring fringe', the script returns the regex
@@ -58,7 +58,7 @@ However, this project is still a work in progress, and the script's functionalit
 
 Additionally, **generalize.py** and **patternize.py** may at some point be integrated together to provide more comprehensive and versatile analyses of morphophonological patterns.
 
-##classify.py
+## classify.py
 
 On its surface, this script is somewhat similar to **generalize.py,** in that it tries to find patterns and groups of words
 connected by those patterns. However, this script works in a very different way — unlike **generalize.py**,
@@ -119,7 +119,7 @@ or that the data is too variable and broad (for instance, a word list obtained f
 or that the script isn't yet clever enough to find them. Whatever you do, make sure to run the script a few times.
 
 
-##regexi_test.py
+## regexi_test.py
 
 This script tests whether a pattern identified by **patternize.py** does in fact work on the data it was given. It does so by running **patternize.py** and then testing the resulting regex against the list of words. It may be used like this:
     
@@ -129,7 +129,7 @@ This script currently doesn't test the output of **generalize.py.** This should 
 Also, this script doesn't test the results of **classify.py** because I don't currently know what a good test algorithm
 for that script would be.
 
-##Requirements
+## Requirements
 
 All scripts in this package were written for Python 3.4+. With some work, they will probably work on Python3.3 
 (such as installing a backported version of statistics and getting around Python3.3's lack of a log2 function), but this has not been tested and is not officially supported.
